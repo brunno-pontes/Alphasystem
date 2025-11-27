@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Gestão de Licenças{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Gestão de Licenças</h1>
+        <a href="{{ url_for('licenses.create_license') }}" class="btn btn-primary">Nova Licença</a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Filtros</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET">
+                <div class="row">
+                    <div class="col-md-6">
+                        <input type="text" name="search" class="form-control" placeholder="Buscar por nome, email ou chave..." value="{{ search }}">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="status" class="form-control">
+                            <option value="">Todos os status</option>
+                            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Ativas</option>
+                            <option value="expired" {% if status_filter == 'expired' %}selected{% endif %}>Expiradas</option>
+                            <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inativas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary">Filtrar</button>
+                        <a href="{{ url_for('licenses.list_licenses') }}" class="btn btn-secondary">Limpar</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabela de Licenças -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Licenças Cadastradas</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Chave</th>
+                            <th>Cliente</th>
+                            <th>Email</th>
+                            <th>Tipo de Usuário</th>
+                            <th>Expira em</th>
+                            <th>Status</th>
+                            <th>Data Criação</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for license in licenses.items %}
+                        <tr>
+                            <td class="text-monospace">{{ license.license_key[:12] }}...</td>
+                            <td>{{ license.client_name }}</td>
+                            <td>{{ license.client_email }}</td>
+                            <td>
+                                {% if license.user_type == 'manager' %}
+                                    <span class="badge badge-primary">Gerente</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">Usuário</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ license.expiry_date.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                {% if license.is_valid() %}
+                                    <span class="badge badge-success">Ativa</span>
+                                {% else %}
+                                    <span class="badge badge-danger">Expirada</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ license.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('licenses.license_details', id=license.id) }}" class="btn btn-info btn-sm">Detalhes</a>
+                                    <a href="{{ url_for('licenses.edit_license', id=license.id) }}" class="btn btn-warning btn-sm">Editar</a>
+                                    <button onclick="toggleLicense({{ license.id }})" class="btn btn-{{ 'danger' if license.is_active else 'success' }} btn-sm">
+                                        {{ 'Desativar' if license.is_active else 'Ativar' }}
+                                    </button>
+                                    <form method="POST" action="{{ url_for('licenses.delete_license', id=license.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir esta licença?')">
+                                        <button type="submit" class="btn btn-danger btn-sm">Excluir</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginação -->
+            <nav aria-label="Navegação de páginas">
+                <ul class="pagination justify-content-center">
+                    {% if licenses.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('licenses.list_licenses', page=licenses.prev_num, search=search, status=status_filter) }}">Anterior</a>
+                        </li>
+                    {% endif %}
+
+                    {% for page_num in licenses.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != licenses.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('licenses.list_licenses', page=page_num, search=search, status=status_filter) }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if licenses.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('licenses.list_licenses', page=licenses.next_num, search=search, status=status_filter) }}">Próxima</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleLicense(licenseId) {
+    fetch(`/licenses/${licenseId}/toggle`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            location.reload();
+        } else {
+            alert('Erro ao alterar status da licença');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Erro ao alterar status da licença');
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,70 @@
+/* Estilos personalizados para o sistema Prateleira */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.card {
+    transition: transform 0.2s;
+    height: 100%;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,.15);
+}
+
+.table th {
+    border-top: none;
+}
+
+.btn i {
+    margin-right: 5px;
+}
+
+.alert {
+    border-radius: 8px;
+}
+
+/* Estilo para o dashboard */
+.dashboard-stats {
+    margin-top: 20px;
+}
+
+.stat-card {
+    border-left: 4px solid #007bff;
+}
+
+.stat-card.sales {
+    border-left-color: #28a745;
+}
+
+.stat-card.products {
+    border-left-color: #ffc107;
+}
+
+.stat-card.customers {
+    border-left-color: #17a2b8;
+}
+
+/* Estilo para formulários */
+.form-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Estilo para tabelas responsivas */
+.table-responsive {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,.1);
+}
+
+/* Estilo para botões de ação nas tabelas */
+.action-buttons .btn {
+    margin: 0 2px;
+}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Transações do Caixa</h2>
+        <a href="{{ url_for('cashier.dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar
+        </a>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            {% if transactions %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Data/Hora</th>
+                            <th>Tipo</th>
+                            <th>Descrição</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transaction in transactions %}
+                        <tr>
+                            <td>{{ transaction.transaction_date.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>
+                                {% if transaction.transaction_type == 'sale' %}
+                                    <span class="badge bg-success">Venda</span>
+                                {% elif transaction.transaction_type == 'expense' %}
+                                    <span class="badge bg-warning text-dark">Despesa</span>
+                                {% elif transaction.transaction_type == 'entry' %}
+                                    <span class="badge bg-primary">Entrada</span>
+                                {% elif transaction.transaction_type == 'exit' %}
+                                    <span class="badge bg-danger">Saída</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if transaction.description %}
+                                    {{ transaction.description }}
+                                {% elif transaction.transaction_type == 'sale' and transaction.related_sale %}
+                                    Venda - {{ transaction.related_sale.product.name }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-{% if transaction.transaction_type in ['sale', 'entry'] %}success{% else %}danger{% endif %}">
+                                {% if transaction.transaction_type in ['sale', 'entry'] %}
+                                    + R$ {{ "%.2f"|format(transaction.amount) }}
+                                {% else %}
+                                    - R$ {{ "%.2f"|format(transaction.amount) }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center">Nenhuma transação registrada no caixa atual.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="card mt-3">
+        <div class="card-body">
+            <h5 class="card-title">Resumo do Caixa</h5>
+            <div class="row">
+                <div class="col-md-3">
+                    <p><strong>Valor Inicial:</strong> R$ {{ "%.2f"|format(active_cashier.initial_amount) }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>Total Vendas:</strong> R$ {{ "%.2f"|format(active_cashier.total_sales) }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>Total Despesas:</strong> R$ {{ "%.2f"|format(active_cashier.total_expenses) }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>Saldo Atual:</strong> R$ {{ "%.2f"|format(active_cashier.initial_amount + active_cashier.total_sales - active_cashier.total_expenses) }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

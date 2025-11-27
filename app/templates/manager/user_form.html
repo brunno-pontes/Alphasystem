@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ 'Editar Usuário' if user else 'Novo Usuário' }}</h1>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>{{ 'Editar Usuário' if user else 'Novo Usuário' }}</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Nome de Usuário</label>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               value="{{ user.username if user else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" 
+                               value="{{ user.email if user else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">{{ 'Nova Senha (deixe em branco para manter a atual)' if user else 'Senha' }}</label>
+                        <input type="{{ 'password' if user else 'password' }}" class="form-control" id="password" name="password" 
+                               {{ '' if user else 'required' }}>
+                    </div>
+                    {% if user %}
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirmar Nova Senha</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password">
+                        <div class="form-text">Preencha apenas se estiver alterando a senha</div>
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirmar Senha</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="license_key" class="form-label">Licença (opcional)</label>
+                        <select class="form-control" id="license_key" name="license_key">
+                            <option value="">Usar licença do gerente ({{ current_user.license_key[:12] if current_user.license_key else 'Nenhuma' }}...)</option>
+                            {% for license in available_licenses %}
+                            <option value="{{ license.license_key }}">{{ license.license_key[:12] }}... - {{ license.client_name }} ({{ license.client_email }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Selecione uma licença específica para este usuário ou deixe em branco para usar a do gerente</div>
+                    </div>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary">{{ 'Atualizar' if user else 'Criar' }} Usuário</button>
+                    <a href="{{ url_for('manager.list_users') }}" class="btn btn-secondary">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

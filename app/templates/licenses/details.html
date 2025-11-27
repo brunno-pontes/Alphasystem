@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Detalhes da Licença{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-xl-10 col-lg-10 col-md-12">
+            <div class="card o-hidden border-0 shadow-lg my-5">
+                <div class="card-body p-0">
+                    <div class="p-5">
+                        <div class="text-center">
+                            <h1 class="h4 text-gray-900 mb-4">Detalhes da Licença</h1>
+                        </div>
+                        
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="m-0 font-weight-bold text-primary">Informações da Licença</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>Chave de Licença:</strong></p>
+                                        <div class="input-group mb-3">
+                                            <input type="text" class="form-control" value="{{ license.license_key }}" readonly>
+                                            <div class="input-group-append">
+                                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard()">Copiar</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p><strong>Status:</strong></p>
+                                        <p>
+                                            {% if license.is_valid() %}
+                                                <span class="badge badge-success">VÁLIDA</span>
+                                            {% else %}
+                                                <span class="badge badge-danger">EXPIRADA</span>
+                                            {% endif %}
+                                            {% if not license.is_active %}
+                                                <span class="badge badge-secondary">DESATIVADA</span>
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>Cliente:</strong> {{ license.client_name }}</p>
+                                        <p><strong>Email:</strong> {{ license.client_email }}</p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p><strong>Data de Criação:</strong> {{ license.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                                        <p><strong>Data de Expiração:</strong> {{ license.expiry_date.strftime('%d/%m/%Y') }}</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>Última Validação:</strong> {{ license.last_validation.strftime('%d/%m/%Y %H:%M') if license.last_validation else 'Nunca validada' }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <a href="{{ url_for('licenses.edit_license', id=license.id) }}" class="btn btn-warning btn-user btn-block">
+                                    Editar Licença
+                                </a>
+                            </div>
+                            <div class="col-md-6">
+                                <a href="{{ url_for('licenses.list_licenses') }}" class="btn btn-secondary btn-user btn-block">
+                                    Voltar à Lista
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard() {
+    navigator.clipboard.writeText('{{ license.license_key }}').then(function() {
+        alert('Chave copiada para a área de transferência!');
+    }, function(err) {
+        console.error('Erro ao copiar: ', err);
+        // Fallback para navegadores mais antigos
+        const textArea = document.createElement('textarea');
+        textArea.value = '{{ license.license_key }}';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        alert('Chave copiada para a área de transferência!');
+    });
+}
+</script>
+{% endblock %}

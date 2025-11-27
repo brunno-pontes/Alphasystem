@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>{% if product %}Editar Produto{% else %}Novo Produto{% endif %}</h2>
+
+<form method="POST" action="{% if product %}{{ url_for('products.edit_product', id=product.id) }}{% else %}{{ url_for('products.new_product') }}{% endif %}">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="name" class="form-label">Nome</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ product.name if product else '' }}" required>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="category" class="form-label">Categoria</label>
+                <input type="text" class="form-control" id="category" name="category" value="{{ product.category if product else '' }}">
+            </div>
+        </div>
+    </div>
+    <div class="mb-3">
+        <label for="description" class="form-label">Descrição</label>
+        <textarea class="form-control" id="description" name="description" rows="3">{{ product.description if product else '' }}</textarea>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="price" class="form-label">Preço</label>
+                <input type="number" class="form-control" id="price" name="price" step="0.01" value="{{ product.price if product else '' }}" required>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="quantity" class="form-label">Quantidade</label>
+                <input type="number" class="form-control" id="quantity" name="quantity" value="{{ product.quantity if product else '0' }}" required>
+            </div>
+        </div>
+    </div>
+    <div class="mb-3">
+        <button type="submit" class="btn btn-primary">
+            {% if product %}<i class="fas fa-save"></i> Salvar{% else %}<i class="fas fa-plus"></i> Adicionar{% endif %}
+        </button>
+        <a href="{{ url_for('products.list_products') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar
+        </a>
+    </div>
+</form>
+{% endblock %}

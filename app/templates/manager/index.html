@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Painel do Gerente</h1>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Usuários</h5>
+                        <h3>{{ total_managed_users }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+                <p class="card-text">Usuários gerenciados</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Caixas Abertos</h5>
+                        <h3>{{ open_cashiers|length }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-cash-register fa-2x"></i>
+                    </div>
+                </div>
+                <p class="card-text">Caixas em operação</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card text-white bg-info mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Vendas Hoje</h5>
+                        <h3>{{ total_daily_sales }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-shopping-cart fa-2x"></i>
+                    </div>
+                </div>
+                <p class="card-text">Vendas registradas hoje</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Receita Hoje</h5>
+                        <h3>R$ {{ "%.2f"|format(total_daily_revenue) }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-dollar-sign fa-2x"></i>
+                    </div>
+                </div>
+                <p class="card-text">Receita total do dia</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if open_cashiers %}
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-cash-register"></i> Caixas Abertos</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Usuário</th>
+                                <th>Valor Inicial</th>
+                                <th>Aberto em</th>
+                                <th>Total Vendas</th>
+                                <th>Saldo Atual</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cashier in open_cashiers %}
+                            <tr>
+                                <td>
+                                    <strong>{{ cashier.user.username }}</strong><br>
+                                    <small class="text-muted">{{ cashier.user.email }}</small>
+                                </td>
+                                <td>R$ {{ "%.2f"|format(cashier.initial_amount) }}</td>
+                                <td>{{ cashier.opening_date.strftime('%d/%m/%Y %H:%M') }}</td>
+                                <td>R$ {{ "%.2f"|format(cashier.total_sales) }}</td>
+                                <td>R$ {{ "%.2f"|format(cashier.calculate_current_balance()) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-shopping-cart"></i> Últimas Vendas</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_sales %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Usuário</th>
+                                <th>Produto</th>
+                                <th>Valor</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in recent_sales[:5] %}
+                            <tr>
+                                <td>{{ sale.cashier.user.username if sale.cashier else 'N/A' }}</td>
+                                <td>{{ sale.product.name }}</td>
+                                <td>R$ {{ "%.2f"|format(sale.total_price) }}</td>
+                                <td>{{ sale.sale_date.strftime('%d/%m %H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Nenhuma venda registrada recentemente.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-users"></i> Usuários Gerenciados</h5>
+            </div>
+            <div class="card-body">
+                {% if managed_users %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Usuário</th>
+                                <th>Status Caixa</th>
+                                <th>Última Venda</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in managed_users %}
+                            {% set user_cashier = open_cashiers|selectattr('user_id', 'equalto', user.id)|first %}
+                            {% set last_sale = user.sales|sort(attribute='sale_date', reverse=True)|first %}
+                            <tr>
+                                <td>{{ user.username }}</td>
+                                <td>
+                                    {% if user_cashier %}
+                                        <span class="badge bg-success">Caixa Aberto</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Fechado</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if last_sale %}
+                                        {{ last_sale.sale_date.strftime('%d/%m %H:%M') }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Nenhum usuário gerenciado encontrado.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Usuários Gerenciados</h5>
+                <a href="{{ url_for('manager.new_user') }}" class="btn btn-success">+ Novo Usuário</a>
+            </div>
+            <div class="card-body">
+                {% if managed_users %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nome de Usuário</th>
+                                <th>Email</th>
+                                <th>Caixa Ativo</th>
+                                <th>Total Vendas</th>
+                                <th>Data de Criação</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in managed_users %}
+                            {% set user_cashier = open_cashiers|selectattr('user_id', 'equalto', user.id)|first %}
+                            {% set user_sales = user.sales|length %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    {% if user_cashier %}
+                                        <span class="badge bg-success">Sim</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Não</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ user_sales }}</td>
+                                <td>{{ user.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                                <td>
+                                    <a href="{{ url_for('manager.edit_user', id=user.id) }}" class="btn btn-sm btn-primary">Editar</a>
+                                    <form method="POST" action="{{ url_for('manager.delete_user', id=user.id) }}" class="d-inline"
+                                          onsubmit="return confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')">
+                                        <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Nenhum usuário gerenciado encontrado.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

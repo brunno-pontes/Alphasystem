@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Controle de Caixa</h2>
+        {% if not active_cashier %}
+        <a href="{{ url_for('cashier.open_cashier') }}" class="btn btn-success">
+            <i class="fas fa-lock-open"></i> Abrir Caixa
+        </a>
+        {% endif %}
+    </div>
+
+    {% if active_cashier %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0">
+                <i class="fas fa-cash-register"></i> Caixa Ativo
+                <small class="float-end">Aberto em: {{ active_cashier.opening_date.strftime('%d/%m/%Y %H:%M') }}</small>
+            </h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="text-muted">Valor Inicial</h5>
+                            <h3 class="text-success">R$ {{ "%.2f"|format(active_cashier.initial_amount) }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="text-muted">Vendas</h5>
+                            <h3 class="text-primary">R$ {{ "%.2f"|format(active_cashier.total_sales) }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="text-muted">Despesas</h5>
+                            <h3 class="text-danger">R$ {{ "%.2f"|format(active_cashier.total_expenses) }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="text-muted">Saldo Atual</h5>
+                            <h3 class="text-info">R$ {{ "%.2f"|format(active_cashier.initial_amount + active_cashier.total_sales - active_cashier.total_expenses) }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <form method="POST" action="{{ url_for('cashier.close_cashier', cashier_id=active_cashier.id) }}" 
+                          onsubmit="return confirm('Tem certeza que deseja fechar o caixa? Esta ação não pode ser desfeita.')">
+                        <a href="{{ url_for('cashier.transactions') }}" class="btn btn-info">
+                            <i class="fas fa-exchange-alt"></i> Transações
+                        </a>
+                        <a href="{{ url_for('cashier.expenses') }}" class="btn btn-warning">
+                            <i class="fas fa-minus-circle"></i> Despesas
+                        </a>
+                        <button type="submit" class="btn btn-danger float-end">
+                            <i class="fas fa-lock"></i> Fechar Caixa
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-shopping-cart"></i> Vendas Recentes</h5>
+                </div>
+                <div class="card-body">
+                    {% if active_cashier %}
+                    <div id="sales-list">
+                        <!-- As vendas serão carregadas via JavaScript -->
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Abra o caixa para ver as vendas associadas.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> Histórico de Caixas</h5>
+                </div>
+                <div class="card-body">
+                    {% if cashiers %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Status</th>
+                                    <th>Inicial</th>
+                                    <th>Vendas</th>
+                                    <th>Final</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in cashiers[:5] %}
+                                <tr>
+                                    <td>{{ c.opening_date.strftime('%d/%m') }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if c.status == 'open' %}success{% else %}secondary{% endif %}">
+                                            {{ 'Aberto' if c.status == 'open' else 'Fechado' }}
+                                        </span>
+                                    </td>
+                                    <td>R$ {{ "%.2f"|format(c.initial_amount) }}</td>
+                                    <td>R$ {{ "%.2f"|format(c.total_sales) }}</td>
+                                    <td>R$ {{ "%.2f"|format(c.final_amount or 0) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Nenhum caixa registrado.</p>
+                    {% endif %}
+                    <a href="{{ url_for('cashier.history') }}" class="btn btn-sm btn-outline-primary float-end">
+                        Ver todos
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Carregar vendas do caixa ativo
+    {% if active_cashier %}
+    loadSales({{ active_cashier.id }});
+    {% endif %}
+});
+
+function loadSales(cashierId) {
+    fetch(`/cashier/api/sales_for_cashier/${cashierId}`)
+    .then(response => response.json())
+    .then(data => {
+        const salesList = document.getElementById('sales-list');
+        if (data.length > 0) {
+            let html = '<ul class="list-group">';
+            data.forEach(sale => {
+                html += `
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <strong>${sale.product_name}</strong><br>
+                                <small class="text-muted">${sale.sale_date}</small>
+                            </div>
+                            <div class="text-end">
+                                <strong>R$ ${parseFloat(sale.total_price).toFixed(2)}</strong><br>
+                                <small>Qtd: ${sale.quantity}</small>
+                            </div>
+                        </div>
+                    </li>
+                `;
+            });
+            html += '</ul>';
+            salesList.innerHTML = html;
+        } else {
+            salesList.innerHTML = '<p class="text-muted">Nenhuma venda registrada no caixa atual.</p>';
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao carregar vendas:', error);
+        document.getElementById('sales-list').innerHTML = '<p class="text-danger">Erro ao carregar vendas.</p>';
+    });
+}
+</script>
+{% endblock %}
