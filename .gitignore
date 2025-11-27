@@ -1,0 +1,34 @@
+# Ambiente virtual
+venv/
+env/
+ENV/
+
+# Banco de dados
+instance/app.db
+*.db
+
+# Arquivos temporários
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Variáveis de ambiente
+.env
+
+# Arquivos de sessão
+cookies.txt
+
+# Outros arquivos temporários
+*.swp
+*.swo
+*~
