@@ -57,6 +57,9 @@ class Sale(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     total_price = db.Column(db.Float, nullable=False)
+    discount_percentage = db.Column(db.Float, default=0.0)  # Percentual de desconto (0 a 100)
+    discount_amount = db.Column(db.Float, default=0.0)  # Valor do desconto
+    final_price = db.Column(db.Float, nullable=False, default=0.0)  # Preço final após desconto
     sale_date = db.Column(db.DateTime, default=datetime.utcnow)
     cashier_id = db.Column(db.Integer, db.ForeignKey('cashier.id'), nullable=True)  # Novo campo
     product = db.relationship('Product', backref='sales')

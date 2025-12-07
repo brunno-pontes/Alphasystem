@@ -8,19 +8,19 @@ import urllib.parse
 class DatabaseConfig:
     """Configuração do banco de dados"""
 
-    # Primeiro tenta usar DATABASE_URL
+    # Força o uso do DATABASE_URL primeiro, e garante que MariaDB seja usado
     DATABASE_URL = os.environ.get('DATABASE_URL')
 
-    if DATABASE_URL:
-        # Usa DATABASE_URL se estiver definido
+    if DATABASE_URL and ('mysql' in DATABASE_URL.lower() or 'mariadb' in DATABASE_URL.lower()):
+        # Usa DATABASE_URL se estiver definido e for MariaDB/MySQL
         SQLALCHEMY_DATABASE_URI = DATABASE_URL
     else:
         # Configuração do MariaDB usando variáveis separadas
         DB_USER = os.environ.get('DB_USER', 'root')
-        DB_PASSWORD = urllib.parse.quote_plus(os.environ.get('DB_PASSWORD', 'root'))  # Codifica caracteres especiais
+        DB_PASSWORD = urllib.parse.quote_plus(os.environ.get('DB_PASSWORD', 'Rootbr@10!'))  # Codifica caracteres especiais
         DB_HOST = os.environ.get('DB_HOST', 'localhost')
         DB_PORT = os.environ.get('DB_PORT', '3306')
-        DB_NAME = os.environ.get('DB_NAME', 'alpha-db')
+        DB_NAME = os.environ.get('DB_NAME', 'alpha')
 
         # URI de conexão com MariaDB
         SQLALCHEMY_DATABASE_URI = f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'

@@ -8,6 +8,18 @@
     </a>
 </div>
 
+<!-- Verificar se o caixa está aberto -->
+{% if current_user and current_user.role != 'manager' and not current_user.is_admin %}
+    {% set active_cashier = current_user.cashiers | selectattr('status', 'equalto', 'open') | list | first %}
+    {% if not active_cashier %}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-triangle"></i> <strong>Atenção!</strong> Você precisa abrir o caixa antes de registrar uma venda.
+            <a href="{{ url_for('cashier.open_cashier') }}" class="alert-link">Clique aqui para abrir o caixa</a>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endif %}
+{% endif %}
+
 <form method="POST" action="{{ url_for('sales.new_sale') }}" id="multi-sale-form">
     {{ form.csrf_token }}
 
@@ -51,8 +63,13 @@
 
     <!-- Tabela de produtos selecionados -->
     <div class="card mb-4">
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center">
             <h5><i class="fas fa-shopping-cart"></i> Produtos Selecionados <span id="total-items">(0 itens)</span></h5>
+            {% if current_user and (current_user.role == 'manager' or current_user.is_admin) %}
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="apply-discount-btn" title="Aplicar desconto de até 5%">
+                <i class="fas fa-percentage"></i> Aplicar Desconto
+            </button>
+            {% endif %}
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -63,6 +80,8 @@
                             <th>Quantidade</th>
                             <th>Preço Unit.</th>
                             <th>Total</th>
+                            <th>Desconto</th>
+                            <th>Total c/ Desc.</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -74,9 +93,60 @@
                             <td colspan="3" class="text-end"><strong>Total Geral:</strong></td>
                             <td><strong id="grand-total">R$ 0.00</strong></td>
                             <td></td>
+                            <td><strong id="grand-total-with-discount">R$ 0.00</strong></td>
+                            <td></td>
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário para venda individual (seção existente para compatibilidade) -->
+    <div id="individual-sale-form" style="display: none;">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="fas fa-cash-register"></i> Venda Individual</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-5">
+                        <label for="product_id" class="form-label">Produto</label>
+                        <select class="form-control" name="product_id" id="single-product-select">
+                            <option value="">Selecione um produto</option>
+                            {% for product in products %}
+                            <option value="{{ product.id }}" data-price="{{ product.price }}" data-quantity="{{ product.quantity }}" {% if product.quantity == 0 %}disabled{% endif %}>
+                                {{ product.name }} - R$ {{ "%.2f"|format(product.price) }} (Estoque: {{ product.quantity }}{% if product.quantity == 0 %}, SEM ESTOQUE{% endif %})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="quantity" class="form-label">Quantidade</label>
+                        <input type="number" class="form-control" name="quantity" id="single-quantity" min="1" value="1" max="999">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="total_price_display" class="form-label">Total</label>
+                        <input type="text" class="form-control" id="single-total-price" value="R$ 0.00" readonly>
+                    </div>
+                    {% if current_user and (current_user.role == 'manager' or current_user.is_admin) %}
+                    <div class="col-md-2">
+                        <label for="discount_percentage" class="form-label">Desconto (%)</label>
+                        <input type="number" class="form-control" name="discount_percentage" id="discount_percentage" min="0" max="5" step="0.1" value="0" placeholder="0-5%">
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-shopping-cart"></i> Vender
+                        </button>
+                    </div>
+                    {% else %}
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-shopping-cart"></i> Vender
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -101,12 +171,15 @@
         const addProductBtn = document.getElementById('add-product-btn');
         const selectedProductsBody = document.getElementById('selected-products-body');
         const grandTotalElement = document.getElementById('grand-total');
+        const grandTotalWithDiscountElement = document.getElementById('grand-total-with-discount');
         const totalItemsElement = document.getElementById('total-items');
         const productsDataInput = document.getElementById('products_data');
         const submitBtn = document.getElementById('submit-btn');
+        const applyDiscountBtn = document.getElementById('apply-discount-btn');
 
         let selectedProducts = [];
         let grandTotal = 0;
+        let hasDiscount = false;
 
         function updatePriceDisplay() {
             const selectedOption = productSelect.options[productSelect.selectedIndex];
@@ -127,6 +200,14 @@
         function updateGrandTotal() {
             grandTotal = selectedProducts.reduce((sum, product) => sum + product.total_price, 0);
             grandTotalElement.textContent = 'R$ ' + grandTotal.toFixed(2);
+
+            // Calcular total com desconto
+            const grandTotalWithDiscount = selectedProducts.reduce((sum, product) => {
+                const discountAmount = (product.total_price * product.discount_percentage) / 100;
+                return sum + (product.total_price - discountAmount);
+            }, 0);
+
+            grandTotalWithDiscountElement.textContent = 'R$ ' + grandTotalWithDiscount.toFixed(2);
             totalItemsElement.textContent = '(' + selectedProducts.length + ' itens)';
             submitBtn.disabled = selectedProducts.length === 0;
         }
@@ -178,7 +259,8 @@
                     name: productName,
                     price: price,
                     quantity: quantity,
-                    total_price: price * quantity
+                    total_price: price * quantity,
+                    discount_percentage: 0  // Iniciar sem desconto
                 };
                 selectedProducts.push(product);
             }
@@ -196,12 +278,21 @@
             selectedProductsBody.innerHTML = '';
 
             selectedProducts.forEach((product, index) => {
+                const discountAmount = (product.total_price * product.discount_percentage) / 100;
+                const finalPrice = product.total_price - discountAmount;
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${product.name}</td>
                     <td>${product.quantity}</td>
                     <td>R$ ${product.price.toFixed(2)}</td>
                     <td>R$ ${product.total_price.toFixed(2)}</td>
+                    <td>
+                        <span class="badge bg-${product.discount_percentage > 0 ? 'success' : 'secondary'}">
+                            ${product.discount_percentage > 0 ? product.discount_percentage + '%' : '0%'}
+                        </span>
+                    </td>
+                    <td>R$ ${finalPrice.toFixed(2)}</td>
                     <td>
                         <button type="button" class="btn btn-danger btn-sm remove-product-btn" data-index="${index}">
                             <i class="fas fa-trash"></i>
@@ -222,6 +313,37 @@
             });
         }
 
+        function applyDiscount() {
+            if (selectedProducts.length === 0) {
+                alert('Adicione produtos antes de aplicar desconto.');
+                return;
+            }
+
+            // Verificar se o usuário é gerente ou administrador (permissão para desconto)
+            {% if current_user and (current_user.role == 'manager' or current_user.is_admin) %}
+                // Aplicar 5% de desconto sobre o valor total da compra
+                const totalValue = selectedProducts.reduce((sum, product) => sum + product.total_price, 0);
+                const discountAmount = (totalValue * 5) / 100; // 5% do valor total
+                const finalValue = totalValue - discountAmount;
+
+                // Distribuir o desconto proporcionalmente entre os produtos
+                selectedProducts.forEach(product => {
+                    // Calcular o desconto proporcional para cada produto
+                    const productPercentage = (product.total_price / totalValue) * 100;
+                    product.discount_percentage = 5.0; // Desconto fixo de 5% para todos os produtos
+                    product.discount_amount = (product.total_price * 5) / 100; // Valor do desconto para este produto
+                });
+
+                updateProductTable();
+                updateGrandTotal();
+
+                // Mostrar mensagem de confirmação com valor do desconto
+                alert(`Desconto de 5% aplicado! Valor do desconto: R$ ${discountAmount.toFixed(2)}`);
+            {% else %}
+                alert('Apenas gerentes e administradores podem aplicar descontos!');
+            {% endif %}
+        }
+
         // Atualizar valores de preço quando o produto ou quantidade mudar
         productSelect.addEventListener('change', updatePriceDisplay);
         quantityInput.addEventListener('input', updatePriceDisplay);
@@ -240,12 +362,65 @@
         // Adicionar produto ao clique do botão
         addProductBtn.addEventListener('click', addProductToList);
 
+        // Adicionar funcionalidade ao botão de desconto
+        applyDiscountBtn.addEventListener('click', applyDiscount);
+
         // Adicionar produto ao pressionar Enter
         quantityInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 addProductToList();
             }
         });
+
+        // Atualizar o preço total para venda individual
+        function updateSingleSaleTotal() {
+            const productSelect = document.getElementById('single-product-select');
+            const quantityInput = document.getElementById('single-quantity');
+            const totalPriceDisplay = document.getElementById('single-total-price');
+            const discountInput = document.getElementById('discount_percentage');
+            const selectedOption = productSelect.options[productSelect.selectedIndex];
+
+            if (selectedOption.value) {
+                const price = parseFloat(selectedOption.getAttribute('data-price'));
+                const quantity = parseInt(quantityInput.value) || 1;
+                let total = price * quantity;
+
+                // Aplicar desconto se existir
+                if (discountInput) {
+                    const discount = parseFloat(discountInput.value) || 0;
+                    if (discount > 0) {
+                        const discountAmount = (total * discount) / 100;
+                        total = total - discountAmount;
+                    }
+                }
+
+                totalPriceDisplay.value = 'R$ ' + total.toFixed(2);
+            } else {
+                totalPriceDisplay.value = 'R$ 0.00';
+            }
+        }
+
+        // Atualizar o campo de desconto individual para limitar a 5%
+        function validateDiscount() {
+            const discountInput = document.getElementById('discount_percentage');
+            let discount = parseFloat(discountInput.value) || 0;
+
+            if (discount < 0) discount = 0;
+            if (discount > 5) discount = 5;
+
+            discountInput.value = discount.toFixed(1);
+        }
+
+        // Event listeners para venda individual
+        document.getElementById('single-product-select').addEventListener('change', updateSingleSaleTotal);
+        document.getElementById('single-quantity').addEventListener('input', updateSingleSaleTotal);
+        document.getElementById('discount_percentage').addEventListener('change', function() {
+            validateDiscount();
+            updateSingleSaleTotal(); // Atualizar o preço total quando o desconto mudar
+        });
+
+        // Atualizar o total quando a página carregar
+        updateSingleSaleTotal();
 
         // Atualizar dados do formulário antes de enviar
         document.getElementById('multi-sale-form').addEventListener('submit', function(e) {

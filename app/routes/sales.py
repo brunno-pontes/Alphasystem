@@ -26,6 +26,21 @@ def new_sale():
     form = SalesForm()
     products = Product.query.all()
 
+    # Verificar se o usuário tem caixa aberto (exceto gerentes/admins)
+    active_cashier = Cashier.query.filter_by(user_id=current_user.id, status='open').first()
+    is_manager = current_user.role == 'manager' or current_user.is_admin
+    has_open_cashier = active_cashier is not None
+
+    # Se não for gerente/admin e não tiver caixa aberto, mostrar mensagem persistente
+    if not is_manager and not has_open_cashier:
+        flash('Você precisa abrir o caixa antes de registrar uma venda.', 'warning')
+
+    # Mostrar mensagem de erro se tentar registrar venda sem caixa aberto
+    if request.method == 'POST':
+        if not is_manager and not active_cashier:
+            flash('Você precisa abrir o caixa antes de registrar uma venda.', 'error')
+            return render_template('sales/form.html', products=products, form=form)
+
     if request.method == 'POST' and form.validate_on_submit():
         # Verificar se é uma venda múltipla ou única
         products_data = request.form.get('products_data')
@@ -43,9 +58,6 @@ def new_sale():
                 flash('Nenhum produto selecionado.', 'error')
                 return render_template('sales/form.html', products=products, form=form)
 
-            # Verificar se o usuário pode registrar a venda com base no status do caixa
-            active_cashier = Cashier.query.filter_by(user_id=current_user.id, status='open').first()
-
             # Determinar se o usuário é gerente (pode vender com caixa fechado)
             is_manager = current_user.role == 'manager' or current_user.is_admin
 
@@ -61,6 +73,8 @@ def new_sale():
             for item in products_list:
                 product_id = item['product_id']
                 quantity = item['quantity']
+                # Verificar se há desconto aplicado (vem do frontend)
+                discount_percentage = item.get('discount_percentage', 0.0)
 
                 product = Product.query.get_or_404(product_id)
 
@@ -72,13 +86,18 @@ def new_sale():
                     return render_template('sales/form.html', products=products, form=form)
 
                 total_price = product.price * quantity
-                total_sale_price += total_price
+                discount_amount = (total_price * discount_percentage) / 100
+                final_price = total_price - discount_amount
+                total_sale_price += final_price  # Somar o preço final com desconto
 
                 # Adicionar produto para atualização
                 products_to_update.append({
                     'product': product,
                     'quantity': quantity,
-                    'total_price': total_price
+                    'total_price': total_price,
+                    'discount_percentage': discount_percentage,
+                    'discount_amount': discount_amount,
+                    'final_price': final_price
                 })
 
             # Salvar todas as vendas
@@ -87,11 +106,17 @@ def new_sale():
                 product = item['product']
                 quantity = item['quantity']
                 total_price = item['total_price']
+                discount_percentage = item['discount_percentage']
+                discount_amount = item['discount_amount']
+                final_price = item['final_price']
 
                 sale = Sale(
                     product_id=product.id,
                     quantity=quantity,
                     total_price=total_price,
+                    discount_percentage=discount_percentage,
+                    discount_amount=discount_amount,
+                    final_price=final_price,
                     cashier_id=active_cashier.id if active_cashier else None
                 )
 
@@ -104,15 +129,15 @@ def new_sale():
                 sale_ids.append(sale.id)
 
                 if active_cashier:
-                    # Atualizar total de vendas do caixa
-                    active_cashier.total_sales += total_price
+                    # Atualizar total de vendas do caixa com o preço final após desconto
+                    active_cashier.total_sales += final_price
 
                     # Criar transação de caixa para a venda
                     transaction = CashierTransaction(
                         cashier_id=active_cashier.id,
                         transaction_type='sale',
-                        amount=total_price,
-                        description=f'Venda - {product.name}',
+                        amount=final_price,  # Usar o preço final após desconto
+                        description=f'Venda - {product.name} (Desconto: {discount_percentage}%)',
                         related_sale_id=sale.id
                     )
 
@@ -124,9 +149,24 @@ def new_sale():
             return redirect(url_for('sales.list_sales'))
 
         else:
-            # Processar venda individual (manter lógica antiga)
-            product_id = int(request.form.get('product_id'))
-            quantity = int(request.form.get('quantity'))
+            # Processar venda individual
+            # Obter os dados da venda individual
+            product_id_str = request.form.get('product_id')
+            quantity_str = request.form.get('quantity')
+
+            # Verificar se os campos obrigatórios existem e não estão vazios
+            if not product_id_str or not quantity_str:
+                flash('Por favor, selecione um produto e informe a quantidade.', 'error')
+                return render_template('sales/form.html', products=products, form=form)
+
+            try:
+                product_id = int(product_id_str)
+                quantity = int(quantity_str)
+            except ValueError:
+                flash('Dados inválidos para produto ou quantidade.', 'error')
+                return render_template('sales/form.html', products=products, form=form)
+
+            discount_percentage = float(request.form.get('discount_percentage', 0.0))  # Obter desconto do formulário
 
             product = Product.query.get_or_404(product_id)
 
@@ -138,6 +178,8 @@ def new_sale():
                 return render_template('sales/form.html', products=products, form=form)
 
             total_price = product.price * quantity
+            discount_amount = (total_price * discount_percentage) / 100
+            final_price = total_price - discount_amount
 
             # Verificar se o usuário pode registrar a venda com base no status do caixa
             active_cashier = Cashier.query.filter_by(user_id=current_user.id, status='open').first()
@@ -154,6 +196,9 @@ def new_sale():
                 product_id=product_id,
                 quantity=quantity,
                 total_price=total_price,
+                discount_percentage=discount_percentage,
+                discount_amount=discount_amount,
+                final_price=final_price,
                 cashier_id=active_cashier.id if active_cashier else None  # Associar diretamente ao caixa ativo
             )
 
@@ -165,15 +210,15 @@ def new_sale():
             db.session.flush()  # Para obter o ID da venda antes do commit
 
             if active_cashier:
-                # Atualizar total de vendas do caixa
-                active_cashier.total_sales += total_price
+                # Atualizar total de vendas do caixa com o preço final após desconto
+                active_cashier.total_sales += final_price
 
                 # Criar transação de caixa para a venda
                 transaction = CashierTransaction(
                     cashier_id=active_cashier.id,
                     transaction_type='sale',
-                    amount=total_price,
-                    description=f'Venda - {product.name}',
+                    amount=final_price,  # Usar o preço final após desconto
+                    description=f'Venda - {product.name} (Desconto: {discount_percentage}%)',
                     related_sale_id=sale.id
                 )
 

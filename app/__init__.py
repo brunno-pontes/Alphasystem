@@ -1,13 +1,26 @@
+import os
+from dotenv import load_dotenv
+
+# Carregar variáveis de ambiente do arquivo .env ANTES de importar outros módulos
+load_dotenv()
+
+# Forçar o uso do DATABASE_URL como padrão
+if 'DATABASE_URL' not in os.environ:
+    # Definir DATABASE_URL com base nas variáveis do .env ou valores padrão
+    DB_USER = os.getenv('DB_USER', 'root')
+    DB_PASSWORD = os.getenv('DB_PASSWORD', 'Rootbr@10!')
+    DB_HOST = os.getenv('DB_HOST', 'localhost')
+    DB_PORT = os.getenv('DB_PORT', '3306')
+    DB_NAME = os.getenv('DB_NAME', 'alpha')
+
+    DATABASE_URL = f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
+    os.environ['DATABASE_URL'] = DATABASE_URL
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from app.config import DevelopmentConfig
-import os
-from dotenv import load_dotenv
 from flask_wtf.csrf import CSRFProtect
-
-# Carregar variáveis de ambiente do arquivo .env
-load_dotenv()
 
 # Inicializar extensões
 db = SQLAlchemy()

@@ -21,6 +21,8 @@
                 <th>Produto</th>
                 <th>Quantidade</th>
                 <th>Preço Total</th>
+                <th>Desconto</th>
+                <th>Preço Final</th>
                 <th>Data</th>
             </tr>
         </thead>
@@ -31,11 +33,13 @@
                 <td>{{ sale.product.name }}</td>
                 <td>{{ sale.quantity }}</td>
                 <td>R$ {{ "%.2f"|format(sale.total_price) }}</td>
+                <td>{{ "%.2f"|format(sale.discount_percentage or 0) }}%</td>
+                <td>R$ {{ "%.2f"|format(sale.final_price or sale.total_price) }}</td>
                 <td>{{ sale.sale_date.strftime('%d/%m/%Y %H:%M') if sale.sale_date else '' }}</td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="5" class="text-center">Nenhuma venda registrada</td>
+                <td colspan="7" class="text-center">Nenhuma venda registrada</td>
             </tr>
             {% endfor %}
         </tbody>
