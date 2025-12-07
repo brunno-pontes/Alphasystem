@@ -1,161 +1,130 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Dashboard</h2>
-
-<div class="row mt-4">
+<div class="row">
     <div class="col-md-3">
         <div class="card text-white bg-primary mb-3">
             <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h5 class="card-title">Produtos</h5>
-                        <h3>{{ total_products }}</h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-box fa-2x"></i>
-                    </div>
-                </div>
-                <p class="card-text">Total de produtos</p>
+                <h5 class="card-title"><i class="bi bi-box"></i> Produtos</h5>
+                <h3 class="card-text">{{ total_products }}</h3>
             </div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card text-white bg-success mb-3">
             <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h5 class="card-title">Vendas</h5>
-                        <h3>{{ total_sales }}</h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-shopping-cart fa-2x"></i>
-                    </div>
-                </div>
-                <p class="card-text">Total de vendas</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-warning mb-3">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h5 class="card-title">Receita</h5>
-                        <h3>R$ {{ "%.2f"|format(total_revenue) }}</h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-money-bill-wave fa-2x"></i>
-                    </div>
-                </div>
-                <p class="card-text">Total arrecadado</p>
+                <h5 class="card-title"><i class="bi bi-cart"></i> Vendas</h5>
+                <h3 class="card-text">{{ total_sales }}</h3>
             </div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card text-white bg-info mb-3">
             <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h5 class="card-title">Caixa</h5>
-                        <h3>
-                            {% if active_cashier %}
-                                <span class="badge bg-success">Aberto</span>
-                            {% else %}
-                                <span class="badge bg-secondary">Fechado</span>
-                            {% endif %}
-                        </h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-cash-register fa-2x"></i>
-                    </div>
+                <h5 class="card-title"><i class="bi bi-currency-dollar"></i> Receita</h5>
+                <h3 class="card-text">R$ {{ "%.2f"|format(total_revenue) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-exclamation-triangle"></i> Estoque Baixo</h5>
+                <h3 class="card-text">{{ low_stock_products }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-graph-up"></i> Estatísticas</h5>
+            </div>
+            <div class="card-body">
+                <!-- Gráficos podem ser adicionados aqui -->
+                <p>Visualização de dados e gráficos estatísticos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-bell"></i> Alertas</h5>
+            </div>
+            <div class="card-body">
+                {% if low_stock_products > 0 %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    {{ low_stock_products }} produto(s) com estoque baixo:
+                    <ul class="mb-0 mt-2">
+                        {% for product in low_stock_products_list %}
+                        <li>{{ product.name }} ({{ product.quantity }} unid.)</li>
+                        {% endfor %}
+                    </ul>
                 </div>
-                <p class="card-text">Controle de caixa</p>
+                {% endif %}
+
+                {% if active_cashier %}
+                <div class="alert alert-success">
+                    <i class="bi bi-cash-stack"></i>
+                    Caixa aberto: R$ {{ "%.2f"|format(active_cashier.initial_amount) }}
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-cash-coin"></i>
+                    Caixa fechado
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
 
 <div class="row mt-4">
-    <div class="col-md-6">
+    <div class="col-md-12">
         <div class="card">
             <div class="card-header">
-                <h5>Últimas Vendas</h5>
+                <h5><i class="bi bi-clock-history"></i> Vendas Recentes</h5>
             </div>
             <div class="card-body">
                 {% if recent_sales %}
-                <ul class="list-group list-group-flush">
-                    {% for sale in recent_sales %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>{{ sale.product.name }}</strong><br>
-                            <small class="text-muted">{{ sale.sale_date.strftime('%d/%m/%Y') }}</small>
-                        </div>
-                        <span class="badge bg-success">R$ {{ "%.2f"|format(sale.total_price) }}</span>
-                    </li>
-                    {% endfor %}
-                </ul>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Quantidade</th>
+                                <th>Valor Total</th>
+                                <th>Data</th>
+                                <th>Caixa</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in recent_sales %}
+                            <tr>
+                                <td>{{ sale.product.name }}</td>
+                                <td>{{ sale.quantity }}</td>
+                                <td>R$ {{ "%.2f"|format(sale.total_price) }}</td>
+                                <td>{{ sale.sale_date.strftime('%d/%m/%Y %H:%M') }}</td>
+                                <td>
+                                    {% if sale.cashier %}
+                                        Caixa #{{ sale.cashier.id }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
                 {% else %}
                 <p class="text-muted">Nenhuma venda registrada recentemente.</p>
                 {% endif %}
             </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5>Produtos em Estoque Baixo</h5>
-            </div>
-            <div class="card-body">
-                {% if low_stock_products_list %}
-                <ul class="list-group list-group-flush">
-                    {% for product in low_stock_products_list %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>{{ product.name }}</strong><br>
-                            <small class="text-muted">{{ product.quantity }} unidades restantes</small>
-                            {% if product.max_quantity > 0 %}
-                                <small class="text-muted"> ({{ (product.quantity / product.max_quantity * 100)|round(1) }}% do máx. de {{ product.max_quantity }})</small>
-                            {% endif %}
-                        </div>
-                        <span class="badge bg-warning">Estoque Baixo</span>
-                    </li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p class="text-muted">Todos os produtos possuem estoque suficiente.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
 </div>
-
-{% if active_cashier %}
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card border-info">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">Caixa Ativo</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3">
-                        <p><strong>Aberto em:</strong> {{ active_cashier.opening_date.strftime('%d/%m/%Y %H:%M') }}</p>
-                    </div>
-                    <div class="col-md-3">
-                        <p><strong>Valor Inicial:</strong> R$ {{ "%.2f"|format(active_cashier.initial_amount) }}</p>
-                    </div>
-                    <div class="col-md-3">
-                        <p><strong>Total Vendas:</strong> R$ {{ "%.2f"|format(active_cashier.total_sales) }}</p>
-                    </div>
-                    <div class="col-md-3">
-                        <p><strong>Saldo Atual:</strong> R$ {{ "%.2f"|format(active_cashier.calculate_current_balance()) }}</p>
-                    </div>
-                </div>
-                <a href="{{ url_for('cashier.dashboard') }}" class="btn btn-info float-end">Ver Detalhes</a>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
 {% endblock %}

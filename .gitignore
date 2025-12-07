@@ -24,7 +24,7 @@ Thumbs.db
 
 # Variáveis de ambiente
 .env
-
+.env.example
 # Arquivos de sessão
 cookies.txt
 

@@ -4,6 +4,7 @@ from flask_login import LoginManager
 from app.config import DevelopmentConfig
 import os
 from dotenv import load_dotenv
+from flask_wtf.csrf import CSRFProtect
 
 # Carregar variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -11,6 +12,7 @@ load_dotenv()
 # Inicializar extensões
 db = SQLAlchemy()
 login_manager = LoginManager()
+csrf = CSRFProtect()
 
 def create_app():
     app = Flask(__name__)
@@ -22,6 +24,7 @@ def create_app():
     # Inicializar extensões com app
     db.init_app(app)
     login_manager.init_app(app)
+    csrf.init_app(app)  # Adiciona proteção CSRF
     login_manager.login_view = 'auth.login'
 
     # Definir o contexto do template para ter acesso ao current_user

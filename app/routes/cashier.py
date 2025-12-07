@@ -4,6 +4,14 @@ from app.models import Cashier, CashierTransaction, Sale
 from app import db
 from app.utils.decorators import license_required
 from datetime import datetime
+from flask_wtf import FlaskForm
+import os
+
+
+class CashierForm(FlaskForm):
+    class Meta:
+        csrf = True
+        csrf_secret = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui').encode('utf-8')
 
 bp = Blueprint('cashier', __name__)
 
@@ -13,14 +21,20 @@ def dashboard():
     """Dashboard do controle de caixa"""
     cashiers = Cashier.query.filter_by(user_id=current_user.id).order_by(Cashier.opening_date.desc()).all()
     active_cashier = Cashier.query.filter_by(user_id=current_user.id, status='open').first()
-    
-    return render_template('cashier/dashboard.html', cashiers=cashiers, active_cashier=active_cashier)
+
+    # Criar um formulário genérico para o token CSRF
+    from flask_wtf import FlaskForm
+    form = FlaskForm()
+
+    return render_template('cashier/dashboard.html', cashiers=cashiers, active_cashier=active_cashier, form=form)
 
 @bp.route('/cashier/open', methods=['GET', 'POST'])
 @license_required
 def open_cashier():
     """Abrir caixa"""
-    if request.method == 'POST':
+    form = CashierForm()
+
+    if request.method == 'POST' and form.validate_on_submit():
         try:
             initial_amount = float(request.form.get('initial_amount', 0))
 
@@ -28,7 +42,7 @@ def open_cashier():
             existing_cashier = Cashier.query.filter_by(user_id=current_user.id, status='open').first()
             if existing_cashier:
                 flash('Você já tem um caixa aberto!', 'error')
-                return redirect(url_for('cashier.dashboard'))
+                return render_template('cashier/open.html', form=form)
 
             # Criar novo caixa
             cashier = Cashier(
@@ -54,13 +68,13 @@ def open_cashier():
             return redirect(url_for('cashier.dashboard'))
         except ValueError:
             flash('Valor inicial inválido. Por favor, insira um número válido.', 'error')
-            return render_template('cashier/open.html')
+            return render_template('cashier/open.html', form=form)
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao abrir caixa: {str(e)}', 'error')
-            return render_template('cashier/open.html')
+            return render_template('cashier/open.html', form=form)
 
-    return render_template('cashier/open.html')
+    return render_template('cashier/open.html', form=form)
 
 @bp.route('/cashier/close/<int:cashier_id>', methods=['POST'])
 @license_required
@@ -90,20 +104,26 @@ def close_cashier(cashier_id):
 @license_required
 def expenses():
     """Registro de despesas"""
+    from app.utils.decorators import cashier_required
+    # Verificar se o usuário pode registrar despesas com base no status do caixa
+    is_manager = current_user.role == 'manager' or current_user.is_admin
+
+    # Verificar se o caixa está aberto para usuários normais
     active_cashier = Cashier.query.filter_by(user_id=current_user.id, status='open').first()
-    
-    if not active_cashier:
+    if not is_manager and not active_cashier:
         flash('Você precisa abrir o caixa primeiro!', 'error')
         return redirect(url_for('cashier.dashboard'))
-    
-    if request.method == 'POST':
+
+    form = CashierForm()
+
+    if request.method == 'POST' and form.validate_on_submit():
         amount = float(request.form.get('amount'))
         description = request.form.get('description')
-        
+
         if amount <= 0:
             flash('O valor da despesa deve ser maior que zero!', 'error')
-            return render_template('cashier/expenses.html', active_cashier=active_cashier)
-        
+            return render_template('cashier/expenses.html', active_cashier=active_cashier, form=form)
+
         # Registrar despesa
         transaction = CashierTransaction(
             cashier_id=active_cashier.id,
@@ -111,37 +131,40 @@ def expenses():
             amount=amount,
             description=description
         )
-        
+
         db.session.add(transaction)
         active_cashier.total_expenses += amount
         db.session.commit()
-        
+
         flash('Despesa registrada com sucesso!', 'success')
         return redirect(url_for('cashier.expenses'))
-    
+
     expenses = CashierTransaction.query.filter_by(
         cashier_id=active_cashier.id,
         transaction_type='expense'
     ).order_by(CashierTransaction.transaction_date.desc()).all()
-    
-    return render_template('cashier/expenses.html', 
-                         active_cashier=active_cashier, 
-                         expenses=expenses)
+
+    return render_template('cashier/expenses.html',
+                         active_cashier=active_cashier,
+                         expenses=expenses, form=form)
 
 @bp.route('/cashier/transactions')
 @license_required
 def transactions():
     """Listar todas as transações do caixa ativo"""
+    # Verificar se o usuário pode visualizar transações com base no status do caixa
+    is_manager = current_user.role == 'manager' or current_user.is_admin
+
+    # Verificar se o caixa está aberto para usuários normais
     active_cashier = Cashier.query.filter_by(user_id=current_user.id, status='open').first()
-    
-    if not active_cashier:
+    if not is_manager and not active_cashier:
         flash('Você precisa abrir o caixa primeiro!', 'error')
         return redirect(url_for('cashier.dashboard'))
-    
+
     transactions = CashierTransaction.query.filter_by(
         cashier_id=active_cashier.id
     ).order_by(CashierTransaction.transaction_date.desc()).all()
-    
+
     return render_template('cashier/transactions.html',
                          active_cashier=active_cashier,
                          transactions=transactions)

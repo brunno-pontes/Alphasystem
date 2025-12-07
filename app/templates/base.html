@@ -3,95 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if title %}{{ title }} - {% endif %}Alphasystem</title>
+    <title>{% if title %}{{ title }} - {% endif %}Sistema Prateleira</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="
-                {% if current_user.role == 'user' and not current_user.is_admin %}
-                    {{ url_for('products.list_products') }}
-                {% else %}
-                    {{ url_for('main.dashboard') }}
-                {% endif %}">
-                <i class="fas fa-cash-register"></i> Alphasystem
-            </a>
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">Sistema Prateleira</a>
+
+            {% if current_user.is_authenticated %}
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
+
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    {% if current_user.is_authenticated %}
-                        <!-- Links para gerentes e administradores -->
-                        {% if current_user.role == 'manager' or current_user.is_admin %}
+                    {% if current_user.role in ['admin', 'manager'] %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('main.dashboard') }}">
-                                <i class="fas fa-tachometer-alt"></i> Dashboard
-                            </a>
+                            <a class="nav-link" href="{{ url_for('main.dashboard') }}">Dashboard</a>
                         </li>
-                        {% endif %}
-                        <!-- Links para todos usuários autenticados -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('products.list_products') }}">
-                                <i class="fas fa-box"></i> Produtos
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('sales.list_sales') }}">
-                                <i class="fas fa-shopping-cart"></i> Vendas
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('cashier.dashboard') }}">
-                                <i class="fas fa-cash-register"></i> Caixa
-                            </a>
-                        </li>
+                    {% endif %}
 
-                        <!-- Links específicos para gerentes e administradores -->
-                        {% if current_user.role == 'manager' or current_user.is_admin %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('manager.index') }}">
-                                    <i class="fas fa-users-cog"></i> Gerenciar Usuários
-                                </a>
-                            </li>
-                        {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('products.list_products') }}">Produtos</a>
+                    </li>
 
-                        <!-- Links específicos para administradores -->
-                        {% if current_user.is_admin %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('licenses.list_licenses') }}">
-                                    <i class="fas fa-key"></i> Licenças
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('licenses.create_license') }}">
-                                    <i class="fas fa-plus-circle"></i> Nova Licença
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('registration.register_with_license') }}">
-                                    <i class="fas fa-user-plus"></i> Registrar Usuário
-                                </a>
-                            </li>
-                        {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('sales.list_sales') }}">Vendas</a>
+                    </li>
+
+                    {% if current_user.role in ['admin', 'manager', 'user'] %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('cashier.dashboard') }}">Caixa</a>
+                        </li>
+                    {% endif %}
+
+                    {% if current_user.role == 'manager' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('manager.index') }}">Gerenciamento</a>
+                        </li>
+                    {% endif %}
+
+                    {% if current_user.is_admin %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('licenses.list_licenses') }}">Licenças</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('licenses.create_license') }}">Nova Licença</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('registration.register_with_license') }}">Registrar Usuário</a>
+                        </li>
                     {% endif %}
                 </ul>
+
+                <!-- Barra de busca -->
+                <form class="d-flex me-3" action="{{ url_for('products.list_products') }}" method="GET">
+                    <input class="form-control me-2" type="search" name="q" placeholder="Buscar produtos..." aria-label="Buscar">
+                    <button class="btn btn-outline-light" type="submit"><i class="bi bi-search"></i></button>
+                </form>
+
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user"></i> {{ current_user.username if current_user.is_authenticated else 'Usuário' }}
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> {{ current_user.username }}
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
+                        <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Sair</a></li>
                         </ul>
                     </li>
                 </ul>
             </div>
+            {% endif %}
         </div>
     </nav>
 
@@ -99,9 +86,9 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
                         {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -112,6 +99,84 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+    <!-- Container para notificações -->
+    <div id="notification-container" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1000;"></div>
+
+    <script>
+    function showNotification(message, type='info', duration=5000) {
+        const container = document.getElementById('notification-container');
+        const notification = document.createElement('div');
+
+        notification.className = `toast align-items-center text-white bg-${type} border-0 mb-2`;
+        notification.setAttribute('role', 'alert');
+        notification.setAttribute('aria-live', 'assertive');
+        notification.setAttribute('aria-atomic', 'true');
+
+        notification.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+
+        container.appendChild(notification);
+
+        const bsToast = new bootstrap.Toast(notification, {
+            delay: duration
+        });
+
+        bsToast.show();
+
+        notification.addEventListener('hidden.bs.toast', function() {
+            container.removeChild(notification);
+        });
+    }
+
+    // Exemplo de uso para mensagens flash
+    document.addEventListener('DOMContentLoaded', function() {
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    showNotification('{{ message|e }}', '{{ 'danger' if category == 'error' else category }}');
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    });
+
+    // Atalhos de teclado
+    document.addEventListener('keydown', function(e) {
+        // Ctrl + Shift + P para ir para a página de produtos
+        if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+            e.preventDefault();
+            window.location.href = "{{ url_for('products.list_products') }}";
+        }
+
+        // Ctrl + Shift + S para ir para a página de vendas
+        if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+            e.preventDefault();
+            window.location.href = "{{ url_for('sales.list_sales') }}";
+        }
+
+        // Ctrl + Shift + C para ir para a página de caixa
+        if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+            e.preventDefault();
+            window.location.href = "{{ url_for('cashier.dashboard') }}";
+        }
+    });
+
+    // Confirmação para ações perigosas
+    document.querySelectorAll('[data-confirm]').forEach(function(element) {
+        element.addEventListener('click', function(e) {
+            if (!confirm('Tem certeza que deseja executar esta ação?')) {
+                e.preventDefault();
+            }
+        });
+    });
+    </script>
+
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -5,6 +5,7 @@
     <h2>Abrir Caixa</h2>
     
     <form method="POST">
+        {{ form.csrf_token }}
         <div class="card">
             <div class="card-body">
                 <div class="mb-3">
@@ -12,7 +13,7 @@
                     <input type="number" step="0.01" class="form-control" id="initial_amount" name="initial_amount" min="0" value="0.00" required>
                     <div class="form-text">Valor em dinheiro que será colocado no caixa para começar o expediente</div>
                 </div>
-                
+
                 <div class="d-flex justify-content-between">
                     <a href="{{ url_for('cashier.dashboard') }}" class="btn btn-secondary">
                         <i class="fas fa-arrow-left"></i> Voltar

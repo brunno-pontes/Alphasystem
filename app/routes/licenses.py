@@ -4,8 +4,17 @@ from app import db
 from app.utils.license_manager import license_manager
 from datetime import datetime, timedelta
 from functools import wraps
+from flask_wtf import FlaskForm
+from wtforms import StringField, EmailField, IntegerField, SelectField
+from wtforms.validators import DataRequired, Email
+import os
 
 bp = Blueprint('licenses', __name__)
+
+class LicenseForm(FlaskForm):
+    class Meta:
+        csrf = True
+        csrf_secret = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui').encode('utf-8')
 
 def admin_required(f):
     """
@@ -76,7 +85,9 @@ def create_license():
     """
     Cria uma nova licença para um cliente
     """
-    if request.method == 'POST':
+    form = LicenseForm()
+
+    if request.method == 'POST' and form.validate_on_submit():
         client_name = request.form.get('client_name')
         client_email = request.form.get('client_email')
         days_valid = request.form.get('days_valid', type=int)
@@ -84,7 +95,7 @@ def create_license():
 
         if not client_name or not client_email or not days_valid:
             flash('Preencha todos os campos obrigatórios.', 'error')
-            return render_template('licenses/form.html')
+            return render_template('licenses/form.html', form=form)
 
         # Criar nova licença
         license = License(
@@ -103,7 +114,7 @@ def create_license():
         flash(f'Licença criada com sucesso! Chave: {license.license_key}', 'success')
         return redirect(url_for('licenses.list_licenses'))
 
-    return render_template('licenses/form.html')
+    return render_template('licenses/form.html', form=form)
 
 @bp.route('/licenses/edit/<int:id>', methods=['GET', 'POST'])
 @admin_required
@@ -112,8 +123,9 @@ def edit_license(id):
     Edita uma licença existente
     """
     license = License.query.get_or_404(id)
+    form = LicenseForm()
 
-    if request.method == 'POST':
+    if request.method == 'POST' and form.validate_on_submit():
         client_name = request.form.get('client_name')
         client_email = request.form.get('client_email')
         expiry_date_str = request.form.get('expiry_date')
@@ -122,14 +134,14 @@ def edit_license(id):
 
         if not client_name or not client_email or not expiry_date_str:
             flash('Preencha todos os campos obrigatórios.', 'error')
-            return render_template('licenses/form.html', license=license)
+            return render_template('licenses/form.html', license=license, form=form)
 
         # Converter a data
         try:
             expiry_date = datetime.strptime(expiry_date_str, '%Y-%m-%d')
         except ValueError:
             flash('Formato de data inválido.', 'error')
-            return render_template('licenses/form.html', license=license)
+            return render_template('licenses/form.html', license=license, form=form)
 
         license.client_name = client_name
         license.client_email = client_email
@@ -142,7 +154,7 @@ def edit_license(id):
         flash('Licença atualizada com sucesso!', 'success')
         return redirect(url_for('licenses.list_licenses'))
 
-    return render_template('licenses/form.html', license=license)
+    return render_template('licenses/form.html', license=license, form=form)
 
 @bp.route('/licenses/delete/<int:id>', methods=['POST'])
 @admin_required

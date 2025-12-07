@@ -37,6 +37,21 @@ class Product(db.Model):
         if self.quantity > self.max_quantity:
             self.max_quantity = self.quantity
 
+    def validate_data(self):
+        """Valida os dados do produto"""
+        errors = []
+
+        if not self.name or len(self.name.strip()) == 0:
+            errors.append("Nome do produto é obrigatório")
+
+        if self.price is None or self.price < 0:
+            errors.append("Preço deve ser um número positivo")
+
+        if self.quantity is None or self.quantity < 0:
+            errors.append("Quantidade deve ser um número positivo")
+
+        return errors
+
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)

@@ -2,65 +2,125 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.models import Product
 from app import db
 from app.utils.decorators import license_required
+from decimal import Decimal
+from flask_wtf import FlaskForm
+from wtforms import StringField, TextAreaField, FloatField, IntegerField
+from wtforms.validators import DataRequired
+import os
+
+
+class ProductForm(FlaskForm):
+    class Meta:
+        csrf = True
+        csrf_secret = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui').encode('utf-8')
 
 bp = Blueprint('products', __name__)
+
+def validate_positive_number(value, field_name):
+    """Valida se um valor é um número positivo"""
+    try:
+        number = Decimal(str(value))
+        if number < 0:
+            raise ValueError(f'{field_name} deve ser um número positivo.')
+        return number
+    except:
+        raise ValueError(f'{field_name} deve ser um número válido.')
+
+def validate_non_empty_string(value, field_name):
+    """Valida se uma string não está vazia"""
+    if not value or not value.strip():
+        raise ValueError(f'{field_name} é obrigatório.')
+    return value.strip()
 
 @bp.route('/products')
 @license_required
 def list_products():
-    products = Product.query.all()
-    return render_template('products/list.html', products=products)
+    from flask_wtf import FlaskForm
+    form = FlaskForm()
+    query = request.args.get('q', '')
+    if query:
+        products = Product.query.filter(Product.name.ilike(f'%{query}%')).all()
+    else:
+        products = Product.query.all()
+    return render_template('products/list.html', products=products, query=query, form=form)
 
 @bp.route('/products/new', methods=['GET', 'POST'])
 @license_required
 def new_product():
-    if request.method == 'POST':
-        name = request.form.get('name')
-        description = request.form.get('description')
-        price = float(request.form.get('price'))
-        quantity = int(request.form.get('quantity'))
-        category = request.form.get('category')
+    form = ProductForm()
 
-        product = Product(
-            name=name,
-            description=description,
-            price=price,
-            quantity=quantity,
-            category=category
-        )
+    if request.method == 'POST' and form.validate_on_submit():
+        try:
+            name = validate_non_empty_string(request.form.get('name'), 'Nome')
+            description = request.form.get('description', '').strip()
+            price = float(validate_positive_number(request.form.get('price'), 'Preço'))
+            quantity = int(validate_positive_number(request.form.get('quantity'), 'Quantidade'))
+            category = request.form.get('category', '').strip()
 
-        db.session.add(product)
-        db.session.commit()
+            product = Product(
+                name=name,
+                description=description,
+                price=price,
+                quantity=quantity,
+                category=category
+            )
 
-        # Atualizar o estoque máximo após criar o produto
-        product.update_max_quantity()
-        db.session.commit()
+            # Validar dados do produto
+            validation_errors = product.validate_data()
+            if validation_errors:
+                for error in validation_errors:
+                    flash(error, 'error')
+                return render_template('products/form.html', form=form)
 
-        flash('Produto adicionado com sucesso!', 'success')
-        return redirect(url_for('products.list_products'))
+            db.session.add(product)
+            db.session.commit()
 
-    return render_template('products/form.html')
+            # Atualizar o estoque máximo após criar o produto
+            product.update_max_quantity()
+            db.session.commit()
+
+            flash('Produto adicionado com sucesso!', 'success')
+            return redirect(url_for('products.list_products'))
+        except ValueError as e:
+            flash(str(e), 'error')
+        except Exception as e:
+            flash('Erro ao adicionar produto: {}'.format(str(e)), 'error')
+
+    return render_template('products/form.html', form=form)
 
 @bp.route('/products/edit/<int:id>', methods=['GET', 'POST'])
 @license_required
 def edit_product(id):
     product = Product.query.get_or_404(id)
+    form = ProductForm()
 
-    if request.method == 'POST':
-        product.name = request.form.get('name')
-        product.description = request.form.get('description')
-        product.price = float(request.form.get('price'))
-        product.quantity = int(request.form.get('quantity'))
-        product.category = request.form.get('category')
+    if request.method == 'POST' and form.validate_on_submit():
+        try:
+            product.name = validate_non_empty_string(request.form.get('name'), 'Nome')
+            product.description = request.form.get('description', '').strip()
+            product.price = float(validate_positive_number(request.form.get('price'), 'Preço'))
+            product.quantity = int(validate_positive_number(request.form.get('quantity'), 'Quantidade'))
+            product.category = request.form.get('category', '').strip()
 
-        # Atualizar o estoque máximo após atualizar o produto
-        product.update_max_quantity()
-        db.session.commit()
+            # Validar dados do produto
+            validation_errors = product.validate_data()
+            if validation_errors:
+                for error in validation_errors:
+                    flash(error, 'error')
+                return render_template('products/form.html', product=product, form=form)
 
-        flash('Produto atualizado com sucesso!', 'success')
-        return redirect(url_for('products.list_products'))
+            # Atualizar o estoque máximo após atualizar o produto
+            product.update_max_quantity()
+            db.session.commit()
 
-    return render_template('products/form.html', product=product)
+            flash('Produto atualizado com sucesso!', 'success')
+            return redirect(url_for('products.list_products'))
+        except ValueError as e:
+            flash(str(e), 'error')
+        except Exception as e:
+            flash('Erro ao atualizar produto: {}'.format(str(e)), 'error')
+
+    return render_template('products/form.html', product=product, form=form)
 
 @bp.route('/products/delete/<int:id>', methods=['POST'])
 @license_required

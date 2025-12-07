@@ -3,17 +3,27 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
+import urllib.parse
+
 class DatabaseConfig:
     """Configuração do banco de dados"""
 
-    # Obter o caminho absoluto para o diretório raiz do projeto
-    BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    # Primeiro tenta usar DATABASE_URL
+    DATABASE_URL = os.environ.get('DATABASE_URL')
 
-    # Criar o caminho completo para o banco de dados
-    DATABASE_PATH = os.path.join(BASE_DIR, 'instance', 'app.db')
+    if DATABASE_URL:
+        # Usa DATABASE_URL se estiver definido
+        SQLALCHEMY_DATABASE_URI = DATABASE_URL
+    else:
+        # Configuração do MariaDB usando variáveis separadas
+        DB_USER = os.environ.get('DB_USER', 'root')
+        DB_PASSWORD = urllib.parse.quote_plus(os.environ.get('DB_PASSWORD', 'root'))  # Codifica caracteres especiais
+        DB_HOST = os.environ.get('DB_HOST', 'localhost')
+        DB_PORT = os.environ.get('DB_PORT', '3306')
+        DB_NAME = os.environ.get('DB_NAME', 'alpha-db')
 
-    # Usar caminho absoluto para o banco de dados SQLite
-    SQLALCHEMY_DATABASE_URI = f'sqlite:///{DATABASE_PATH}'
+        # URI de conexão com MariaDB
+        SQLALCHEMY_DATABASE_URI = f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 
     # Opções adicionais para melhorar desempenho
     SQLALCHEMY_ENGINE_OPTIONS = {

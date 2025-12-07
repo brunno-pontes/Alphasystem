@@ -8,35 +8,83 @@
     </a>
 </div>
 
-<form method="POST" action="{{ url_for('sales.new_sale') }}">
-    <div class="row">
-        <div class="col-md-6">
-            <div class="mb-3">
-                <label for="product_id" class="form-label">Produto</label>
-                <select class="form-control" id="product_id" name="product_id" required>
-                    <option value="">Selecione um produto</option>
-                    {% for product in products %}
-                    <option value="{{ product.id }}" data-price="{{ product.price }}" data-quantity="{{ product.quantity }}">
-                        {{ product.name }} - R$ {{ "%.2f"|format(product.price) }} (Estoque: {{ product.quantity }})
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
+<form method="POST" action="{{ url_for('sales.new_sale') }}" id="multi-sale-form">
+    {{ form.csrf_token }}
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5><i class="fas fa-plus-circle"></i> Adicionar Produtos</h5>
         </div>
-        <div class="col-md-6">
-            <div class="mb-3">
-                <label for="quantity" class="form-label">Quantidade</label>
-                <input type="number" class="form-control" id="quantity" name="quantity" min="1" value="1" required>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-5">
+                    <label for="product_select" class="form-label">Produto</label>
+                    <select class="form-control" id="product_select">
+                        <option value="">Selecione um produto</option>
+                        {% for product in products %}
+                        <option value="{{ product.id }}" data-price="{{ product.price }}" data-quantity="{{ product.quantity }}" {% if product.quantity == 0 %}disabled{% endif %}>
+                            {{ product.name }} - R$ {{ "%.2f"|format(product.price) }} (Estoque: {{ product.quantity }}{% if product.quantity == 0 %}, SEM ESTOQUE{% endif %})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="quantity_input" class="form-label">Quantidade</label>
+                    <input type="number" class="form-control" id="quantity_input" min="1" value="1" max="999">
+                </div>
+                <div class="col-md-2">
+                    <label for="price_display" class="form-label">Preço Unit.</label>
+                    <input type="text" class="form-control" id="price_display" value="R$ 0.00" readonly>
+                </div>
+                <div class="col-md-2">
+                    <label for="total_display" class="form-label">Preço Total</label>
+                    <input type="text" class="form-control" id="total_display" value="R$ 0.00" readonly>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary" id="add-product-btn">
+                        <i class="fas fa-plus"></i> Adicionar
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-    <div class="mb-3">
-        <label class="form-label">Preço Unitário: <span id="unit-price">R$ 0.00</span></label><br>
-        <label class="form-label">Preço Total: <span id="total-price">R$ 0.00</span></label>
+
+    <!-- Tabela de produtos selecionados -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5><i class="fas fa-shopping-cart"></i> Produtos Selecionados <span id="total-items">(0 itens)</span></h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped" id="selected-products-table">
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th>Quantidade</th>
+                            <th>Preço Unit.</th>
+                            <th>Total</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="selected-products-body">
+                        <!-- Linhas de produtos adicionados dinamicamente -->
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" class="text-end"><strong>Total Geral:</strong></td>
+                            <td><strong id="grand-total">R$ 0.00</strong></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
     </div>
+
     <div class="mb-3">
-        <button type="submit" class="btn btn-success">
-            <i class="fas fa-shopping-cart"></i> Registrar Venda
+        <input type="hidden" name="products_data" id="products_data" value="">
+        <button type="submit" class="btn btn-success" id="submit-btn" disabled>
+            <i class="fas fa-shopping-cart"></i> Registrar Venda Múltipla
         </button>
         <a href="{{ url_for('sales.list_sales') }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Voltar
@@ -46,31 +94,163 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const productSelect = document.getElementById('product_id');
-        const quantityInput = document.getElementById('quantity');
-        const unitPriceSpan = document.getElementById('unit-price');
-        const totalPriceSpan = document.getElementById('total-price');
+        const productSelect = document.getElementById('product_select');
+        const quantityInput = document.getElementById('quantity_input');
+        const priceDisplay = document.getElementById('price_display');
+        const totalDisplay = document.getElementById('total_display');
+        const addProductBtn = document.getElementById('add-product-btn');
+        const selectedProductsBody = document.getElementById('selected-products-body');
+        const grandTotalElement = document.getElementById('grand-total');
+        const totalItemsElement = document.getElementById('total-items');
+        const productsDataInput = document.getElementById('products_data');
+        const submitBtn = document.getElementById('submit-btn');
 
-        function updatePrices() {
+        let selectedProducts = [];
+        let grandTotal = 0;
+
+        function updatePriceDisplay() {
             const selectedOption = productSelect.options[productSelect.selectedIndex];
             if (selectedOption.value) {
                 const price = parseFloat(selectedOption.getAttribute('data-price'));
+                priceDisplay.value = 'R$ ' + price.toFixed(2);
+
                 const quantity = parseInt(quantityInput.value) || 0;
                 const total = price * quantity;
 
-                unitPriceSpan.textContent = 'R$ ' + price.toFixed(2);
-                totalPriceSpan.textContent = 'R$ ' + total.toFixed(2);
+                totalDisplay.value = 'R$ ' + total.toFixed(2);
             } else {
-                unitPriceSpan.textContent = 'R$ 0.00';
-                totalPriceSpan.textContent = 'R$ 0.00';
+                priceDisplay.value = 'R$ 0.00';
+                totalDisplay.value = 'R$ 0.00';
             }
         }
 
-        productSelect.addEventListener('change', updatePrices);
-        quantityInput.addEventListener('input', updatePrices);
+        function updateGrandTotal() {
+            grandTotal = selectedProducts.reduce((sum, product) => sum + product.total_price, 0);
+            grandTotalElement.textContent = 'R$ ' + grandTotal.toFixed(2);
+            totalItemsElement.textContent = '(' + selectedProducts.length + ' itens)';
+            submitBtn.disabled = selectedProducts.length === 0;
+        }
 
-        // Inicializar valores
-        updatePrices();
+        function addProductToList() {
+            const selectedOption = productSelect.options[productSelect.selectedIndex];
+            if (!selectedOption.value) {
+                alert('Por favor, selecione um produto.');
+                return;
+            }
+
+            const productId = parseInt(selectedOption.value);
+            const productName = selectedOption.textContent.split(' - ')[0];
+            const price = parseFloat(selectedOption.getAttribute('data-price'));
+            const availableQuantity = parseInt(selectedOption.getAttribute('data-quantity'));
+            const quantity = parseInt(quantityInput.value);
+
+            // Verificar se o produto está sem estoque
+            if (availableQuantity === 0) {
+                alert(`Item sem estoque: ${productName}`);
+                return;
+            }
+
+            if (isNaN(quantity) || quantity <= 0) {
+                alert('Por favor, informe uma quantidade válida.');
+                return;
+            }
+
+            if (quantity > availableQuantity) {
+                alert(`Quantidade solicitada (${quantity}) excede o estoque disponível (${availableQuantity}).`);
+                return;
+            }
+
+            // Verificar se o produto já foi adicionado
+            const existingIndex = selectedProducts.findIndex(p => p.product_id === productId);
+            if (existingIndex >= 0) {
+                // Atualizar quantidade se já estiver na lista
+                const newQuantity = selectedProducts[existingIndex].quantity + quantity;
+                if (newQuantity > availableQuantity) {
+                    alert(`A quantidade total (${newQuantity}) excede o estoque disponível (${availableQuantity}) para ${productName}.`);
+                    return;
+                }
+                selectedProducts[existingIndex].quantity = newQuantity;
+                selectedProducts[existingIndex].total_price = selectedProducts[existingIndex].quantity * selectedProducts[existingIndex].price;
+            } else {
+                // Adicionar novo produto
+                const product = {
+                    product_id: productId,
+                    name: productName,
+                    price: price,
+                    quantity: quantity,
+                    total_price: price * quantity
+                };
+                selectedProducts.push(product);
+            }
+
+            updateProductTable();
+            updateGrandTotal();
+
+            // Resetar campos
+            productSelect.value = '';
+            quantityInput.value = '1';
+            updatePriceDisplay();
+        }
+
+        function updateProductTable() {
+            selectedProductsBody.innerHTML = '';
+
+            selectedProducts.forEach((product, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${product.name}</td>
+                    <td>${product.quantity}</td>
+                    <td>R$ ${product.price.toFixed(2)}</td>
+                    <td>R$ ${product.total_price.toFixed(2)}</td>
+                    <td>
+                        <button type="button" class="btn btn-danger btn-sm remove-product-btn" data-index="${index}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                selectedProductsBody.appendChild(row);
+            });
+
+            // Adicionar eventos para botões de remoção
+            document.querySelectorAll('.remove-product-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    selectedProducts.splice(index, 1);
+                    updateProductTable();
+                    updateGrandTotal();
+                });
+            });
+        }
+
+        // Atualizar valores de preço quando o produto ou quantidade mudar
+        productSelect.addEventListener('change', updatePriceDisplay);
+        quantityInput.addEventListener('input', updatePriceDisplay);
+        quantityInput.addEventListener('change', function() {
+            // Garantir que a quantidade não exceda o estoque
+            const selectedOption = productSelect.options[productSelect.selectedIndex];
+            if (selectedOption.value) {
+                const availableQuantity = parseInt(selectedOption.getAttribute('data-quantity'));
+                if (this.value > availableQuantity) {
+                    this.value = availableQuantity;
+                    updatePriceDisplay();
+                }
+            }
+        });
+
+        // Adicionar produto ao clique do botão
+        addProductBtn.addEventListener('click', addProductToList);
+
+        // Adicionar produto ao pressionar Enter
+        quantityInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addProductToList();
+            }
+        });
+
+        // Atualizar dados do formulário antes de enviar
+        document.getElementById('multi-sale-form').addEventListener('submit', function(e) {
+            productsDataInput.value = JSON.stringify(selectedProducts);
+        });
     });
 </script>
 {% endblock %}

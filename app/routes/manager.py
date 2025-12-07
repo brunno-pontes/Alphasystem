@@ -7,6 +7,14 @@ from app.utils.license_manager import check_license
 from werkzeug.security import generate_password_hash
 from functools import wraps
 from datetime import datetime
+from flask_wtf import FlaskForm
+import os
+
+
+class ManagerForm(FlaskForm):
+    class Meta:
+        csrf = True
+        csrf_secret = os.environ.get('SECRET_KEY', 'sua_chave_secreta_aqui').encode('utf-8')
 
 bp = Blueprint('manager', __name__)
 
@@ -85,7 +93,9 @@ def list_users():
 @manager_required
 def new_user():
     """Criar novo usuário"""
-    if request.method == 'POST':
+    form = ManagerForm()
+
+    if request.method == 'POST' and form.validate_on_submit():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
@@ -95,12 +105,12 @@ def new_user():
         # Verificar se os campos obrigatórios estão preenchidos
         if not username or not email or not password:
             flash('Preencha todos os campos obrigatórios.', 'error')
-            return render_template('manager/user_form.html')
+            return render_template('manager/user_form.html', form=form)
 
         # Verificar se as senhas coincidem
         if password != confirm_password:
             flash('As senhas não coincidem.', 'error')
-            return render_template('manager/user_form.html')
+            return render_template('manager/user_form.html', form=form)
 
         # Verificar se o usuário ou email já existe
         existing_user = User.query.filter(
@@ -109,7 +119,7 @@ def new_user():
 
         if existing_user:
             flash('Nome de usuário ou email já está em uso.', 'error')
-            return render_template('manager/user_form.html')
+            return render_template('manager/user_form.html', form=form)
 
         # Se for fornecida uma licença, verificar se ela existe e é válida
         assigned_license = None
@@ -144,42 +154,43 @@ def new_user():
         License.expiry_date > func.now()
     ).all()
 
-    return render_template('manager/user_form.html', available_licenses=available_licenses)
+    return render_template('manager/user_form.html', available_licenses=available_licenses, form=form)
 
 @bp.route('/manager/users/edit/<int:id>', methods=['GET', 'POST'])
 @manager_required
 def edit_user(id):
     """Editar usuário gerenciado"""
+    form = ManagerForm()
     user = User.query.filter_by(id=id, manager_id=current_user.id).first_or_404()
-    
-    if request.method == 'POST':
+
+    if request.method == 'POST' and form.validate_on_submit():
         username = request.form.get('username')
         email = request.form.get('email')
         new_password = request.form.get('password')
-        
+
         # Verificar se o usuário ou email já está sendo usado por outro usuário
         existing_user = User.query.filter(
             ((User.username == username) | (User.email == email)) & (User.id != id)
         ).first()
-        
+
         if existing_user:
             flash('Nome de usuário ou email já está em uso por outro usuário.', 'error')
-            return render_template('manager/user_form.html', user=user)
-        
+            return render_template('manager/user_form.html', user=user, form=form)
+
         # Atualizar os dados do usuário
         user.username = username
         user.email = email
-        
+
         # Atualizar a senha se foi fornecida
         if new_password:
             user.password = generate_password_hash(new_password)
-        
+
         db.session.commit()
-        
+
         flash('Usuário atualizado com sucesso!', 'success')
         return redirect(url_for('manager.list_users'))
-    
-    return render_template('manager/user_form.html', user=user)
+
+    return render_template('manager/user_form.html', user=user, form=form)
 
 @bp.route('/manager/users/delete/<int:id>', methods=['POST'])
 @manager_required

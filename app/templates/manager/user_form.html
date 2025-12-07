@@ -13,9 +13,10 @@
             </div>
             <div class="card-body">
                 <form method="POST">
+                    {{ form.csrf_token }}
                     <div class="mb-3">
                         <label for="username" class="form-label">Nome de Usuário</label>
-                        <input type="text" class="form-control" id="username" name="username" 
+                        <input type="text" class="form-control" id="username" name="username"
                                value="{{ user.username if user else '' }}" required>
                     </div>
                     <div class="mb-3">
