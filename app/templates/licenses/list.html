@@ -87,6 +87,7 @@
                                         {{ 'Desativar' if license.is_active else 'Ativar' }}
                                     </button>
                                     <form method="POST" action="{{ url_for('licenses.delete_license', id=license.id) }}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir esta licença?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                         <button type="submit" class="btn btn-danger btn-sm">Excluir</button>
                                     </form>
                                 </div>

@@ -9,10 +9,11 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 class User(UserMixin, db.Model):
+    __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(150), nullable=False)
+    password = db.Column(db.Text, nullable=False)  # Usando Text para acomodar qualquer tamanho de hash
     is_admin = db.Column(db.Boolean, default=False)
     role = db.Column(db.String(50), default='user')  # 'admin', 'manager', 'user'
     license_key = db.Column(db.String(255), db.ForeignKey('license.license_key'), nullable=True)
@@ -23,6 +24,7 @@ class User(UserMixin, db.Model):
     manager = db.relationship('User', remote_side=[id], backref='managed_users')
 
 class Product(db.Model):
+    __tablename__ = 'product'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
@@ -53,6 +55,7 @@ class Product(db.Model):
         return errors
 
 class Sale(db.Model):
+    __tablename__ = 'sale'
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
@@ -68,6 +71,7 @@ class Sale(db.Model):
 
 class Cashier(db.Model):
     """Modelo para controle de caixa"""
+    __tablename__ = 'cashier'
     id = db.Column(db.Integer, primary_key=True)
     opening_date = db.Column(db.DateTime, default=datetime.utcnow)
     closing_date = db.Column(db.DateTime, nullable=True)
@@ -107,6 +111,7 @@ class Cashier(db.Model):
 
 class CashierTransaction(db.Model):
     """Modelo para transações no caixa (vendas, despesas, etc.)"""
+    __tablename__ = 'cashier_transaction'
     id = db.Column(db.Integer, primary_key=True)
     cashier_id = db.Column(db.Integer, db.ForeignKey('cashier.id'), nullable=False)
     transaction_type = db.Column(db.String(20), nullable=False)  # 'sale', 'expense', 'entry', 'exit'
@@ -118,8 +123,9 @@ class CashierTransaction(db.Model):
     related_sale = db.relationship('Sale', backref='cashier_transactions')
 
 
-
 class License(db.Model):
+    __tablename__ = 'license'
+    # Este modelo usará o banco de dados online para validação, mas pode ser armazenado localmente também
     id = db.Column(db.Integer, primary_key=True)
     license_key = db.Column(db.String(255), unique=True, nullable=False)
     client_name = db.Column(db.String(200), nullable=False)
@@ -145,3 +151,91 @@ class License(db.Model):
         if not self.last_validation:
             return True
         return (datetime.utcnow() - self.last_validation).days >= 30
+
+    @classmethod
+    def validate_license_online(cls, license_key):
+        """
+        Método de classe para validar uma licença diretamente no banco de dados online
+        """
+        from app.database_manager import database_manager
+        from datetime import datetime
+        from sqlalchemy import text
+
+        try:
+            online_session = database_manager.get_online_db_session()
+
+            # Query direto no banco de dados online usando text()
+            query = text("SELECT license_key, client_name, client_email, expiry_date, is_active FROM license WHERE license_key = :license_key")
+            result = online_session.execute(query, {"license_key": license_key}).fetchone()
+
+            if result:
+                # Verificar se a licença está ativa e não expirada
+                is_active = result.is_active
+                expiry_date = result.expiry_date
+
+                is_valid_online = is_active and expiry_date > datetime.utcnow()
+
+                # Fechar a sessão
+                online_session.close()
+
+                return {
+                    "valid": is_valid_online,
+                    "license_data": {
+                        "license_key": result.license_key,
+                        "client_name": result.client_name,
+                        "client_email": result.client_email,
+                        "expiry_date": result.expiry_date,
+                        "is_active": result.is_active
+                    }
+                }
+            else:
+                online_session.close()
+                return {"valid": False, "license_data": None, "message": "Licença não encontrada no servidor online"}
+        except Exception as e:
+            try:
+                online_session.close()
+            except:
+                pass
+            return {"valid": False, "license_data": None, "message": f"Erro ao validar licença no servidor: {str(e)}"}
+
+    @classmethod
+    def save_license_online(cls, license_data):
+        """
+        Método de classe para salvar uma licença no banco de dados online
+        Usado para registrar licenças válidas que serão usadas em outros clientes
+        """
+        from app.database_manager import database_manager
+        from datetime import datetime
+        from sqlalchemy import text
+
+        try:
+            online_session = database_manager.get_online_db_session()
+
+            # Inserir a licença no banco de dados online
+            query = text("""
+                INSERT INTO license (license_key, client_name, client_email, expiry_date, is_active, user_type, created_at, last_validation)
+                VALUES (:license_key, :client_name, :client_email, :expiry_date, :is_active, :user_type, :created_at, :last_validation)
+            """)
+
+            online_session.execute(query, {
+                "license_key": license_data['license_key'],
+                "client_name": license_data['client_name'],
+                "client_email": license_data['client_email'],
+                "expiry_date": license_data['expiry_date'],
+                "is_active": license_data.get('is_active', True),
+                "user_type": license_data.get('user_type', 'user'),
+                "created_at": license_data.get('created_at', datetime.utcnow()),
+                "last_validation": license_data.get('last_validation', datetime.utcnow())
+            })
+
+            online_session.commit()
+            online_session.close()
+
+            return {"success": True, "message": "Licença salva no servidor online com sucesso"}
+        except Exception as e:
+            try:
+                online_session.rollback()
+                online_session.close()
+            except:
+                pass
+            return {"success": False, "message": f"Erro ao salvar licença no servidor online: {str(e)}"}

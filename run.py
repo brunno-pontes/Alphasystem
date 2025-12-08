@@ -4,10 +4,6 @@ from dotenv import load_dotenv
 # Carregar variáveis de ambiente do arquivo .env ANTES de importar outros módulos
 load_dotenv()
 
-# Forçar definição do DATABASE_URL para garantir uso do MariaDB
-DATABASE_URL = os.environ.get('DATABASE_URL', 'mysql+pymysql://root:Rootbr%4010!@localhost:3306/alpha')
-os.environ['DATABASE_URL'] = DATABASE_URL
-
 from app import create_app, db
 from app.models import User, Product, Sale, License, Cashier, CashierTransaction
 from app.utils.license_manager import license_manager
@@ -18,10 +14,10 @@ app = create_app()
 # Configurar logging
 setup_logger(app)
 
-# Criar tabelas no banco de dados
+# Criar tabelas no banco de dados local
 try:
     with app.app_context():
-        # Criar todas as tabelas no banco de dados
+        # Criar todas as tabelas no banco de dados local
         db.create_all()
 
         # Atualizar estrutura do banco de dados para incluir colunas de desconto
@@ -58,9 +54,9 @@ try:
             '''))
 
             db.session.commit()
-            print('Banco de dados atualizado com sucesso!')
+            print('Banco de dados local atualizado com sucesso!')
         except Exception as migration_error:
-            print(f'Erro durante a atualização do banco de dados: {migration_error}')
+            print(f'Erro durante a atualização do banco de dados local: {migration_error}')
             db.session.rollback()
 
         # Iniciar validação de licença em background
@@ -68,9 +64,9 @@ try:
         app.logger.info("Aplicação iniciada com sucesso!")
         print("Aplicação iniciada com sucesso!")
 except Exception as e:
-    print(f"Erro ao tentar conectar ao banco de dados: {e}")
-    print("Verifique as configurações do banco de dados no arquivo .env")
-    app.logger.error(f"Erro ao tentar conectar ao banco de dados: {e}")
+    print(f"Erro ao tentar conectar ao banco de dados local: {e}")
+    print("Verifique as configurações do banco de dados local no arquivo .env")
+    app.logger.error(f"Erro ao tentar conectar ao banco de dados local: {e}")
 
 if __name__ == '__main__':
     app.run(debug=True, port=5007)

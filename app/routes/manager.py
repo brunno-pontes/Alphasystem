@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import current_user
-from app.models import User, License, Cashier, Sale, Product
+from app.models import User, License, Cashier, Sale, Product, CashierTransaction
 from app import db
 from sqlalchemy import func
 from app.utils.license_manager import check_license
@@ -197,14 +197,35 @@ def edit_user(id):
 def delete_user(id):
     """Excluir usuário gerenciado"""
     user = User.query.filter_by(id=id, manager_id=current_user.id).first_or_404()
-    
+
     # Não permitir excluir o próprio gerente
     if user.id == current_user.id:
         flash('Você não pode excluir sua própria conta.', 'error')
         return redirect(url_for('manager.list_users'))
-    
+
+    # Antes de deletar o usuário, remover os caixas associados
+    # Primeiro fechar qualquer caixa aberto
+    open_cashiers = Cashier.query.filter_by(user_id=user.id, status='open').all()
+    for cashier in open_cashiers:
+        cashier.status = 'closed'
+        if not cashier.closing_date:
+            cashier.closing_date = datetime.utcnow()
+
+    # Obter os caixas associados ao usuário
+    user_cashiers = Cashier.query.filter_by(user_id=user.id).all()
+    cashier_ids = [cashier.id for cashier in user_cashiers]
+
+    # Remover as transações do caixa associadas aos caixas do usuário
+    if cashier_ids:
+        CashierTransaction.query.filter(CashierTransaction.cashier_id.in_(cashier_ids)).delete(synchronize_session=False)
+
+    # Agora deletar os caixas associados ao usuário
+    for cashier in user_cashiers:
+        db.session.delete(cashier)
+
+    # Finalmente, deletar o usuário
     db.session.delete(user)
     db.session.commit()
-    
+
     flash('Usuário excluído com sucesso!', 'success')
     return redirect(url_for('manager.list_users'))

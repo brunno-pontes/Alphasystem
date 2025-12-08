@@ -111,6 +111,28 @@ def create_license():
         db.session.add(license)
         db.session.commit()
 
+        # Para ambiente local: tentar salvar também no banco online para validação
+        try:
+            license_data = {
+                'license_key': license.license_key,
+                'client_name': license.client_name,
+                'client_email': license.client_email,
+                'expiry_date': license.expiry_date,
+                'is_active': license.is_active,
+                'user_type': license.user_type,
+                'created_at': license.created_at,
+                'last_validation': license.last_validation
+            }
+
+            # Salvar no banco online para que outras instâncias possam validar
+            result = License.save_license_online(license_data)
+            if result['success']:
+                flash('Licença criada e registrada no servidor online com sucesso!', 'success')
+            else:
+                flash(f'Licença criada localmente, mas não foi registrada no servidor online: {result["message"]}', 'warning')
+        except Exception as e:
+            flash(f'Licença criada localmente, mas ocorreu um erro ao registrar no servidor online: {str(e)}', 'warning')
+
         flash(f'Licença criada com sucesso! Chave: {license.license_key}', 'success')
         return redirect(url_for('licenses.list_licenses'))
 

@@ -4,18 +4,6 @@ from dotenv import load_dotenv
 # Carregar variáveis de ambiente do arquivo .env ANTES de importar outros módulos
 load_dotenv()
 
-# Forçar o uso do DATABASE_URL como padrão
-if 'DATABASE_URL' not in os.environ:
-    # Definir DATABASE_URL com base nas variáveis do .env ou valores padrão
-    DB_USER = os.getenv('DB_USER', 'root')
-    DB_PASSWORD = os.getenv('DB_PASSWORD', 'Rootbr@10!')
-    DB_HOST = os.getenv('DB_HOST', 'localhost')
-    DB_PORT = os.getenv('DB_PORT', '3306')
-    DB_NAME = os.getenv('DB_NAME', 'alpha')
-
-    DATABASE_URL = f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
-    os.environ['DATABASE_URL'] = DATABASE_URL
-
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -33,6 +21,13 @@ def create_app():
     # Carregar configurações
     app.config.from_object(DevelopmentConfig)
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'sua_chave_secreta_aqui'
+
+    # Configurar SQLAlchemy para usar o banco de dados local por padrão
+    app.config['SQLALCHEMY_DATABASE_URI'] = DevelopmentConfig.LOCAL_DATABASE_URI
+    app.config['SQLALCHEMY_BINDS'] = {
+        'local': DevelopmentConfig.LOCAL_DATABASE_URI,
+        'online': DevelopmentConfig.ONLINE_DATABASE_URI
+    }
 
     # Inicializar extensões com app
     db.init_app(app)

@@ -32,3 +32,4 @@ cookies.txt
 *.swp
 *.swo
 *~
+init_admin_mariadb.py

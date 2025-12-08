@@ -12,24 +12,22 @@ def init_admin_user():
         # Carrega as variáveis de ambiente do arquivo .env ANTES de importar outros módulos
         load_dotenv()
 
-        print(f"DATABASE_URL configurado: {os.environ.get('DATABASE_URL', 'Não definido')}")
-
         # Importar dentro da função para garantir que as variáveis de ambiente sejam carregadas
         from app import create_app
         from app.models import db, User
         from werkzeug.security import generate_password_hash
 
-        # Criar aplicação
+        # Criar aplicação - agora vai usar a configuração atualizada com banco local
         app = create_app()
 
         with app.app_context():
             print(f"URI do banco de dados efetivo: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
 
             # Criar tabelas se não existirem
-            print("Criando tabelas no banco de dados...")
+            print("Criando tabelas no banco de dados local...")
             db.create_all()
 
-            # Atualizar estrutura do banco de dados para incluir colunas de desconto
+            # Atualizar estrutura do banco de dados para incluir colunas de desconto e corrigir tamanho da senha
             from sqlalchemy import text
             try:
                 # Verificar se as colunas de desconto existem e adicioná-las se necessário
@@ -62,10 +60,16 @@ def init_admin_user():
                     WHERE discount_percentage IS NULL OR discount_amount IS NULL OR final_price IS NULL
                 '''))
 
+                # Corrigir tamanho da coluna de senha no usuário
+                db.session.execute(text('''
+                    ALTER TABLE user MODIFY COLUMN password TEXT NOT NULL
+                '''))
+                print('Coluna password atualizada para TEXT.')
+
                 db.session.commit()
-                print('Banco de dados atualizado com sucesso!')
+                print('Banco de dados local atualizado com sucesso!')
             except Exception as migration_error:
-                print(f'Erro durante a atualização do banco de dados: {migration_error}')
+                print(f'Erro durante a atualização do banco de dados local: {migration_error}')
                 db.session.rollback()
 
             # Verificar se o usuário administrador já existe
@@ -76,7 +80,7 @@ def init_admin_user():
                 admin = User(
                     username='admin',
                     email='admin@alpha.com',
-                    password=generate_password_hash('admin123'),
+                    password=generate_password_hash('Root@10!br'),  # Usando a senha padrão do sistema
                     is_admin=True
                 )
 
@@ -85,7 +89,7 @@ def init_admin_user():
 
                 print("Usuário administrador criado com sucesso!")
                 print("Username: admin")
-                print("Senha padrão: admin123")
+                print("Senha padrão: Root@10!br")
                 print("Email: admin@alpha.com")
             else:
                 print("Usuário administrador já existe.")

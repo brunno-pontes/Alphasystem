@@ -65,11 +65,9 @@
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5><i class="fas fa-shopping-cart"></i> Produtos Selecionados <span id="total-items">(0 itens)</span></h5>
-            {% if current_user and (current_user.role == 'manager' or current_user.is_admin) %}
             <button type="button" class="btn btn-outline-secondary btn-sm" id="apply-discount-btn" title="Aplicar desconto de até 5%">
                 <i class="fas fa-percentage"></i> Aplicar Desconto
             </button>
-            {% endif %}
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -102,7 +100,7 @@
         </div>
     </div>
 
-    <!-- Formulário para venda individual (seção existente para compatibilidade) -->
+    <!-- Formulário para venda individual (seção oculta mas funcional para todos os usuários) -->
     <div id="individual-sale-form" style="display: none;">
         <div class="card mb-4">
             <div class="card-header">
@@ -129,7 +127,6 @@
                         <label for="total_price_display" class="form-label">Total</label>
                         <input type="text" class="form-control" id="single-total-price" value="R$ 0.00" readonly>
                     </div>
-                    {% if current_user and (current_user.role == 'manager' or current_user.is_admin) %}
                     <div class="col-md-2">
                         <label for="discount_percentage" class="form-label">Desconto (%)</label>
                         <input type="number" class="form-control" name="discount_percentage" id="discount_percentage" min="0" max="5" step="0.1" value="0" placeholder="0-5%">
@@ -139,13 +136,6 @@
                             <i class="fas fa-shopping-cart"></i> Vender
                         </button>
                     </div>
-                    {% else %}
-                    <div class="col-md-3 d-flex align-items-end">
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-shopping-cart"></i> Vender
-                        </button>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -319,29 +309,24 @@
                 return;
             }
 
-            // Verificar se o usuário é gerente ou administrador (permissão para desconto)
-            {% if current_user and (current_user.role == 'manager' or current_user.is_admin) %}
-                // Aplicar 5% de desconto sobre o valor total da compra
-                const totalValue = selectedProducts.reduce((sum, product) => sum + product.total_price, 0);
-                const discountAmount = (totalValue * 5) / 100; // 5% do valor total
-                const finalValue = totalValue - discountAmount;
+            // Aplicar 5% de desconto sobre o valor total da compra
+            const totalValue = selectedProducts.reduce((sum, product) => sum + product.total_price, 0);
+            const discountAmount = (totalValue * 5) / 100; // 5% do valor total
+            const finalValue = totalValue - discountAmount;
 
-                // Distribuir o desconto proporcionalmente entre os produtos
-                selectedProducts.forEach(product => {
-                    // Calcular o desconto proporcional para cada produto
-                    const productPercentage = (product.total_price / totalValue) * 100;
-                    product.discount_percentage = 5.0; // Desconto fixo de 5% para todos os produtos
-                    product.discount_amount = (product.total_price * 5) / 100; // Valor do desconto para este produto
-                });
+            // Distribuir o desconto proporcionalmente entre os produtos
+            selectedProducts.forEach(product => {
+                // Calcular o desconto proporcional para cada produto
+                const productPercentage = (product.total_price / totalValue) * 100;
+                product.discount_percentage = 5.0; // Desconto fixo de 5% para todos os produtos
+                product.discount_amount = (product.total_price * 5) / 100; // Valor do desconto para este produto
+            });
 
-                updateProductTable();
-                updateGrandTotal();
+            updateProductTable();
+            updateGrandTotal();
 
-                // Mostrar mensagem de confirmação com valor do desconto
-                alert(`Desconto de 5% aplicado! Valor do desconto: R$ ${discountAmount.toFixed(2)}`);
-            {% else %}
-                alert('Apenas gerentes e administradores podem aplicar descontos!');
-            {% endif %}
+            // Mostrar mensagem de confirmação com valor do desconto
+            alert(`Desconto de 5% aplicado! Valor do desconto: R$ ${discountAmount.toFixed(2)}`);
         }
 
         // Atualizar valores de preço quando o produto ou quantidade mudar

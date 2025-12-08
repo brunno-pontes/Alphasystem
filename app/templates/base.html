@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if title %}{{ title }} - {% endif %}Sistema Prateleira</title>
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -134,6 +136,30 @@
             container.removeChild(notification);
         });
     }
+
+    // Função para obter o token CSRF
+    function getCSRFToken() {
+        return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    }
+
+    // Configuração global para CSRF token em requisições fetch
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+        if (args[1] && (args[1].method && !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(args[1].method.toUpperCase()))) {
+            args[1].headers = {
+                'X-CSRFToken': getCSRFToken(),
+                ...args[1].headers
+            };
+        } else if (!args[1]) {
+            // Handle the case where no options object is provided but we need to send headers
+            args[1] = {
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                }
+            };
+        }
+        return originalFetch.apply(this, args);
+    };
 
     // Exemplo de uso para mensagens flash
     document.addEventListener('DOMContentLoaded', function() {

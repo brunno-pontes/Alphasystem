@@ -255,6 +255,52 @@ Para implantação em produção, recomenda-se:
 - Configurar o banco de dados para produção
 - Implementar o servidor central para validação de licenças
 
+## Configuração de Múltiplos Bancos de Dados
+
+Este sistema suporta dois bancos de dados MariaDB:
+
+1. **Banco Local**: Armazenamento no cliente (dados operacionais como usuários, produtos, vendas, caixas, etc.)
+2. **Banco Online**: Hospedado remotamente, usado exclusivamente para **validação de licenças**
+
+### Estrutura de Configuração
+
+#### Arquivo `.env`
+- Variáveis separadas para cada banco de dados (`LOCAL_DB_*` e `ONLINE_DB_*`)
+- Configuração simplificada: apenas o `.env` precisa ser alterado por cliente
+
+#### Componentes Implementados
+- `app/config.py`: Configuração separada para ambos os bancos
+- `app/database_manager.py`: Gerenciamento seguro de múltiplas conexões
+- `app/models/__init__.py`: Modelo License atualizado com método de classe para validação online
+- `app/utils/license_manager.py`: Sistema de validação de licenças com fallbacks
+- `app/routes/licenses.py`: Atualizado para registrar licenças no banco online (em rede local)
+
+### Processo de Validação de Licenças
+1. Verificação local da licença
+2. A cada 30 dias, validação no banco de dados online
+3. Se validação online falhar, período de carência de 3 dias
+4. Após carência, acesso negado até validação bem sucedida
+
+## Sincronização de Licenças (Ambiente de Produção vs Rede Local)
+
+### Em ambiente de produção (servidor online real):
+- Licenças válidas são criadas no sistema administrativo central
+- As licenças são automaticamente registradas no banco de dados online
+- Clientes podem validar suas licenças, mas não criar novas licenças válidas
+- Apenas licenças previamente registradas no servidor central são válidas
+
+### Em rede local (para testes):
+- As licenças criadas localmente são automaticamente registradas no banco online para testes
+- Isso permite simular o comportamento real do sistema
+- No script de criação de licenças (`app/routes/licenses.py`), há uma funcionalidade que tenta salvar a licença também no banco online
+- Isso é feito apenas para desenvolvimento/testes locais
+
+### Como funcionará em um sistema real:
+1. Somente o administrador central pode criar licenças válidas no servidor central
+2. As licenças são registradas no banco online e distribuídas para validação
+3. Clientes recebem a chave da licença e o sistema valida automaticamente no servidor
+4. O processo de validação é transparente para o cliente final
+
 ## Funcionalidade de Recuperação de Senha
 
 O sistema inclui uma funcionalidade de recuperação de senha por email:
