@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}
+Histórico de Consumo
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2>Histórico de Consumo</h2>
+
+            <!-- Filtro de Cliente -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="customerFilter" class="form-label">Filtrar por Cliente:</label>
+                    <select id="customerFilter" class="form-select" onchange="filterByCustomer(this.value)">
+                        <option value="">Todos os Clientes</option>
+                        {% for customer in all_customers %}
+                            <option value="{{ customer.id }}" {% if customer_id_filter == customer.id %}selected{% endif %}>
+                                {{ customer.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            {% if consumption_records %}
+                <!-- Resumo Geral -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card text-center bg-primary text-white">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    {% if customer_id_filter %}
+                                        {% set filtered_customer = all_customers|selectattr('id', 'equalto', customer_id_filter)|first %}
+                                        Total Consumido ({{ filtered_customer.name if filtered_customer else 'Cliente' }})
+                                    {% else %}
+                                        Total Consumido
+                                    {% endif %}
+                                </h5>
+                                <h3>R$ {{ "%.2f"|format(total_consumed_general) }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center bg-success text-white">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    {% if customer_id_filter %}
+                                        {% set filtered_customer = all_customers|selectattr('id', 'equalto', customer_id_filter)|first %}
+                                        Total Pago ({{ filtered_customer.name if filtered_customer else 'Cliente' }})
+                                    {% else %}
+                                        Total Pago
+                                    {% endif %}
+                                </h5>
+                                <h3>R$ {{ "%.2f"|format(total_paid_general) }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center bg-warning text-dark">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    {% if customer_id_filter %}
+                                        {% set filtered_customer = all_customers|selectattr('id', 'equalto', customer_id_filter)|first %}
+                                        Total Pendente ({{ filtered_customer.name if filtered_customer else 'Cliente' }})
+                                    {% else %}
+                                        Total Pendente
+                                    {% endif %}
+                                </h5>
+                                <h3>R$ {{ "%.2f"|format(total_pending_general) }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Produto/Serviço</th>
+                                <th>Valor</th>
+                                <th>Data</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in consumption_records %}
+                                <tr>
+                                    <td>{{ record.customer.name }}</td>
+                                    <td>{{ record.item_description }}</td>
+                                    <td>R$ {{ "%.2f"|format(record.total_value) }}</td>
+                                    <td>{{ record.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                                    <td>
+                                        {% if record.paid %}
+                                            <span class="badge bg-success">Pago</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">Pendente</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            {% else %}
+                <div class="alert alert-info">
+                    Nenhum consumo registrado até o momento.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<script>
+    // Função para filtrar por cliente
+    function filterByCustomer(customerId) {
+        // Redirecionar para a mesma página com o parâmetro de filtro
+        let url = window.location.pathname;
+        if (customerId) {
+            url += '?customer_id=' + customerId;
+        }
+        window.location.href = url;
+    }
+</script>
+{% endblock %}

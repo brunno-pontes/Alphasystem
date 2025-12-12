@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}
+Editar Cliente - Fiado
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Editar Cliente</h2>
+
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div class="mb-3">
+            <label for="name" class="form-label">Nome *</label>
+            <input type="text" class="form-control" id="name" name="name" value="{{ customer.name }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label for="phone" class="form-label">Telefone</label>
+            <input type="text" class="form-control" id="phone" name="phone" value="{{ customer.phone or '' }}">
+        </div>
+
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Atualizar Cliente</button>
+            <a href="{{ url_for('credit.list_customers') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

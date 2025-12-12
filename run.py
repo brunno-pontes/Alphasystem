@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app import create_app, db
-from app.models import User, Product, Sale, License, Cashier, CashierTransaction
+from app.models import User, Product, Sale, License, Cashier, CashierTransaction, CustomerCredit, ConsumptionRecord
 from app.utils.license_manager import license_manager
 from app.utils.logger import setup_logger
 
@@ -57,6 +57,79 @@ try:
             print('Banco de dados local atualizado com sucesso!')
         except Exception as migration_error:
             print(f'Erro durante a atualização do banco de dados local: {migration_error}')
+            db.session.rollback()
+
+        # Verificar se as tabelas de crédito e consumo existem e criá-las se necessário
+        try:
+            # Verificar se a tabela customer_credit existe
+            result = db.session.execute(text('''
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = DATABASE()
+                AND table_name = 'customer_credit'
+            '''))
+
+            if not result.fetchone():
+                # Criar a tabela customer_credit
+                db.session.execute(text('''
+                    CREATE TABLE customer_credit (
+                        id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                        name VARCHAR(150) NOT NULL,
+                        phone VARCHAR(20),
+                        total_debt FLOAT DEFAULT 0.0,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )
+                '''))
+                print('Tabela customer_credit criada com sucesso.')
+
+            # Verificar se a tabela consumption_record existe
+            result = db.session.execute(text('''
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = DATABASE()
+                AND table_name = 'consumption_record'
+            '''))
+
+            if not result.fetchone():
+                # Criar a tabela consumption_record
+                db.session.execute(text('''
+                    CREATE TABLE consumption_record (
+                        id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                        customer_id INTEGER NOT NULL,
+                        item_description VARCHAR(200) NOT NULL,
+                        total_value FLOAT NOT NULL,
+                        paid BOOLEAN DEFAULT FALSE,
+                        paid_date DATETIME NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (customer_id) REFERENCES customer_credit(id)
+                    )
+                '''))
+                print('Tabela consumption_record criada com sucesso.')
+            else:
+                # Verificar se a coluna item_description existe
+                result = db.session.execute(text('''
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = DATABASE()
+                    AND table_name = 'consumption_record'
+                    AND column_name = 'item_description'
+                '''))
+
+                if not result.fetchone():
+                    # Adicionar a coluna item_description
+                    db.session.execute(text('ALTER TABLE consumption_record ADD COLUMN item_description VARCHAR(200) NOT NULL DEFAULT "Item não especificado"'))
+                    print('Coluna item_description adicionada à tabela consumption_record.')
+
+                    # Atualizar registros existentes para terem um valor padrão
+                    db.session.execute(text('UPDATE consumption_record SET item_description = "Item não especificado" WHERE item_description IS NULL OR item_description = ""'))
+                    print('Registros existentes atualizados com descrição padrão.')
+
+            db.session.commit()
+            print('Tabelas de crédito e consumo verificadas/atualizadas com sucesso!')
+        except Exception as credit_migration_error:
+            print(f'Erro durante a criação/atualização das tabelas de crédito e consumo: {credit_migration_error}')
             db.session.rollback()
 
         # Iniciar validação de licença em background

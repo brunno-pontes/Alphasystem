@@ -57,7 +57,7 @@ class Product(db.Model):
 class Sale(db.Model):
     __tablename__ = 'sale'
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id', ondelete='CASCADE'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     total_price = db.Column(db.Float, nullable=False)
     discount_percentage = db.Column(db.Float, default=0.0)  # Percentual de desconto (0 a 100)
@@ -65,7 +65,7 @@ class Sale(db.Model):
     final_price = db.Column(db.Float, nullable=False, default=0.0)  # Preço final após desconto
     sale_date = db.Column(db.DateTime, default=datetime.utcnow)
     cashier_id = db.Column(db.Integer, db.ForeignKey('cashier.id'), nullable=True)  # Novo campo
-    product = db.relationship('Product', backref='sales')
+    product = db.relationship('Product', backref='sales', passive_deletes=True)
     cashier = db.relationship('Cashier', backref='sales')  # Novo relacionamento
 
 
@@ -121,6 +121,48 @@ class CashierTransaction(db.Model):
     related_sale_id = db.Column(db.Integer, db.ForeignKey('sale.id'), nullable=True)
     cashier = db.relationship('Cashier', backref='transactions')
     related_sale = db.relationship('Sale', backref='cashier_transactions')
+
+
+class CustomerCredit(db.Model):
+    """Modelo para clientes que compram fiado"""
+    __tablename__ = 'customer_credit'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    phone = db.Column(db.String(20), nullable=True)
+    total_debt = db.Column(db.Float, default=0.0)  # Dívida total acumulada
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<CustomerCredit {self.name}>'
+
+    def calculate_total_debt(self):
+        """Calcula a dívida total baseada nos registros de consumo"""
+        total = 0
+        for record in self.consumption_records:
+            if not record.paid:
+                total += record.total_value
+        self.total_debt = total
+        return total
+
+
+class ConsumptionRecord(db.Model):
+    """Modelo para registros de consumo de clientes fiado"""
+    __tablename__ = 'consumption_record'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer_credit.id'), nullable=False)
+    item_description = db.Column(db.String(200), nullable=False)  # Descrição do item/produto
+    total_value = db.Column(db.Float, nullable=False)  # Valor total da compra
+    paid = db.Column(db.Boolean, default=False)  # Indica se a dívida foi quitada
+    paid_date = db.Column(db.DateTime, nullable=True)  # Data em que a dívida foi quitada
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relacionamento com o cliente
+    customer = db.relationship('CustomerCredit', backref='consumption_records')
+
+    def __repr__(self):
+        return f'<ConsumptionRecord {self.customer.name} - {self.item_description} - R${self.total_value:.2f}>'
 
 
 class License(db.Model):

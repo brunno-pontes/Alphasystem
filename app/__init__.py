@@ -69,6 +69,9 @@ def create_app():
     from app.routes.registration import bp as registration_bp
     app.register_blueprint(registration_bp)
 
+    from app.routes.credit import bp as credit_bp
+    app.register_blueprint(credit_bp)
+
     # Registrar blueprint de debug (somente para desenvolvimento)
     try:
         from app.routes.debug import bp as debug_bp

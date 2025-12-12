@@ -126,6 +126,15 @@ def edit_product(id):
 @license_required
 def delete_product(id):
     product = Product.query.get_or_404(id)
+
+    # Primeiro deletar todas as vendas associadas ao produto manualmente
+    # para evitar o problema de atualização do product_id para NULL
+    from app.models import Sale
+    sales_to_delete = Sale.query.filter_by(product_id=id).all()
+    for sale in sales_to_delete:
+        db.session.delete(sale)
+
+    # Depois deletar o produto
     db.session.delete(product)
     db.session.commit()
 

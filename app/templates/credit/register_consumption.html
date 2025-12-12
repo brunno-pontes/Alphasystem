@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Registrar Consumo Fiado</h2>
+    
+    <form id="consumption-form" class="mb-4">
+        <div class="row">
+            <div class="col-md-6">
+                <label for="customer-select" class="form-label">Selecione o Cliente *</label>
+                <select class="form-select" id="customer-select" required>
+                    <option value="">Escolha um cliente...</option>
+                    {% for customer in customers %}
+                    <option value="{{ customer.id }}">{{ customer.name }} (Dívida: R$ {{ "%.2f"|format(customer.total_debt) }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 text-end">
+                <button type="button" class="btn btn-success" onclick="payDebt()">Pagar Toda a Dívida</button>
+            </div>
+        </div>
+    </form>
+    
+    <div id="consumption-section" style="display:none;">
+        <h4>Adicionar Item</h4>
+        <form id="item-form" class="mb-4">
+            <div class="row">
+                <div class="col-md-5">
+                    <input type="text" class="form-control" id="item-description" placeholder="Descrição do item" required>
+                </div>
+                <div class="col-md-3">
+                    <input type="number" class="form-control" id="item-price" placeholder="Valor (R$)" step="0.01" min="0" required>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">Adicionar Item</button>
+                </div>
+            </div>
+        </form>
+        
+        <h4>Itens do Consumo</h4>
+        <div class="table-responsive">
+            <table class="table table-striped" id="items-table">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Valor (R$)</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="items-list">
+                    <!-- Itens serão adicionados dinamicamente -->
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>Total da Dívida:</th>
+                        <th id="total-debt">R$ 0.00</th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let customerId = null;
+let currentItems = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    const customerSelect = document.getElementById('customer-select');
+
+    customerSelect.addEventListener('change', function() {
+        customerId = this.value;
+        if (customerId) {
+            document.getElementById('consumption-section').style.display = 'block';
+            loadCurrentDebt();
+        } else {
+            document.getElementById('consumption-section').style.display = 'none';
+        }
+    });
+
+    document.getElementById('item-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        addItem();
+    });
+});
+
+function loadCurrentDebt() {
+    // Obter informações do cliente selecionado
+    const selectedOption = document.querySelector('#customer-select option[value="' + customerId + '"]');
+    if (selectedOption) {
+        // Extrai o valor da dívida atual do texto da opção
+        const debtMatch = selectedOption.text.match(/Dívida: R\$ ([\d,]+\.?\d*)/);
+        if (debtMatch) {
+            document.getElementById('total-debt').textContent = 'R$ ' + parseFloat(debtMatch[1]).toFixed(2);
+        } else {
+            document.getElementById('total-debt').textContent = 'R$ 0.00';
+        }
+    }
+}
+
+function addItem() {
+    const description = document.getElementById('item-description').value.trim();
+    const price = parseFloat(document.getElementById('item-price').value);
+
+    if (!description || isNaN(price)) {
+        alert('Por favor, preencha corretamente a descrição e o valor do item.');
+        return;
+    }
+
+    // Enviar requisição para adicionar item
+    fetch('/credit/consumption/add_item', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            customer_id: customerId,
+            item_description: description,
+            item_price: price
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Atualizar a lista de itens e o total
+            const newRow = document.createElement('tr');
+            newRow.setAttribute('data-record-id', data.record_id);
+            newRow.innerHTML = `
+                <td>${description}</td>
+                <td>R$ ${price.toFixed(2)}</td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeItem(${data.record_id})">Remover</button>
+                </td>
+            `;
+
+            document.getElementById('items-list').appendChild(newRow);
+
+            // Atualizar total
+            document.getElementById('total-debt').textContent = 'R$ ' + data.total_debt.toFixed(2);
+
+            // Limpar formulário
+            document.getElementById('item-description').value = '';
+            document.getElementById('item-price').value = '';
+        } else {
+            alert('Erro ao adicionar item: ' + (data.error || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Ocorreu um erro ao adicionar o item.');
+    });
+}
+
+function removeItem(recordId) {
+    if (!confirm('Tem certeza que deseja remover este item?')) {
+        return;
+    }
+
+    fetch(`/credit/consumption/${recordId}/delete_item`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remover linha da tabela
+            const row = document.querySelector(`[data-record-id="${recordId}"]`);
+            if (row) {
+                row.remove();
+            }
+
+            // Recarregar total da dívida
+            loadCurrentDebt();
+        } else {
+            alert('Erro ao remover item.');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Ocorreu um erro ao remover o item.');
+    });
+}
+
+function payDebt() {
+    if (!customerId) {
+        alert('Selecione um cliente primeiro.');
+        return;
+    }
+
+    if (!confirm('Tem certeza que deseja quitar toda a dívida deste cliente?')) {
+        return;
+    }
+
+    // Criar formulário para envio seguro com CSRF
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/credit/consumption/${customerId}/pay`;
+    form.style.display = 'none';
+
+    // Adicionar token CSRF
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrf_token';
+    csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    form.appendChild(csrfInput);
+
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
+
+{% endblock %}
