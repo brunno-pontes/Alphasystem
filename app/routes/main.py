@@ -19,7 +19,8 @@ def dashboard():
     total_revenue = sum(sale.total_price for sale in Sale.query.all()) or 0
 
     # Calcular produtos com estoque baixo (20% ou menos do máximo histórico, ou menos de 5 unidades - o que for maior)
-    products = Product.query.all()
+    # Exclui o produto especial para pagamento de fiado
+    products = Product.query.filter(Product.name != 'Pagamento de Fiado').all()
     low_stock_products_list = []
 
     for product in products:

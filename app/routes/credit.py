@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
-from flask_login import login_required
+from flask_login import login_required, current_user
 from app import db
-from app.models import CustomerCredit, ConsumptionRecord
+from app.models import CustomerCredit, ConsumptionRecord, Sale, Product, Cashier, CashierTransaction
 from datetime import datetime
 
 bp = Blueprint('credit', __name__, url_prefix='/credit')
@@ -199,12 +199,63 @@ def pay_consumption(customer_id):
     """Quita a dívida de um cliente"""
     customer = CustomerCredit.query.get_or_404(customer_id)
 
-    # Marcar todos os registros pendentes como pagos
+    # Obter todos os registros pendentes para somar o valor total pago
     pending_records = ConsumptionRecord.query.filter_by(customer_id=customer_id, paid=False).all()
 
+    total_paid = sum(record.total_value for record in pending_records)
+
+    # Marcar todos os registros pendentes como pagos
     for record in pending_records:
         record.paid = True
         record.paid_date = datetime.now()
+
+    # Verificar se o usuário tem caixa aberto (exceto gerentes/admins)
+    active_cashier = Cashier.query.filter_by(user_id=current_user.id, status='open').first()
+    is_manager = current_user.role == 'manager' or current_user.is_admin
+    has_open_cashier = active_cashier is not None
+
+    # Registrar o pagamento como venda real se o caixa estiver aberto ou for gerente
+    if total_paid > 0 and (is_manager or has_open_cashier):
+        # Encontrar ou criar um produto genérico para representar o pagamento de fiado
+        credit_payment_product = Product.query.filter_by(name='Pagamento de Fiado').first()
+        if not credit_payment_product:
+            credit_payment_product = Product(
+                name='Pagamento de Fiado',
+                description='Produto para representar pagamento de dívida de fiado',
+                price=0.0,  # Preço unitário zero para não afetar cálculos indevidamente
+                quantity=0  # Sem estoque
+            )
+            db.session.add(credit_payment_product)
+            db.session.flush()  # Para obter o ID do produto
+
+        # Criar uma venda para o pagamento de fiado
+        credit_payment_sale = Sale(
+            product_id=credit_payment_product.id,
+            quantity=1,  # Sempre 1 unidade
+            total_price=total_paid,  # Valor total pago
+            discount_percentage=0.0,  # Sem desconto
+            discount_amount=0.0,  # Sem desconto
+            final_price=total_paid,  # Valor final é o mesmo que o total
+            sale_date=datetime.now(),
+            cashier_id=active_cashier.id if active_cashier else None
+        )
+
+        db.session.add(credit_payment_sale)
+
+        if active_cashier:
+            # Atualizar total de vendas do caixa com o valor pago
+            active_cashier.total_sales += total_paid
+
+            # Criar transação de caixa para o pagamento de fiado
+            credit_payment_transaction = CashierTransaction(
+                cashier_id=active_cashier.id,
+                transaction_type='sale',  # Tipo de transação de venda
+                amount=total_paid,
+                description=f'Pagamento de fiado - Cliente: {customer.name}',
+                related_sale_id=credit_payment_sale.id
+            )
+
+            db.session.add(credit_payment_transaction)
 
     db.session.commit()
 
@@ -212,7 +263,7 @@ def pay_consumption(customer_id):
     customer.calculate_total_debt()
     db.session.commit()
 
-    flash(f'Dívida do cliente {customer.name} quitada com sucesso!', 'success')
+    flash(f'Dívida do cliente {customer.name} quitada com sucesso! Valor de R${total_paid:.2f} adicionado às vendas.', 'success')
     return redirect(url_for('credit.register_consumption'))
 
 @bp.route('/consumption/<int:record_id>/delete_item', methods=['POST'])

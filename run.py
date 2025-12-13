@@ -142,4 +142,4 @@ except Exception as e:
     app.logger.error(f"Erro ao tentar conectar ao banco de dados local: {e}")
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5007)
+    app.run(debug=True, host='0.0.0.0' ,port=5007)
