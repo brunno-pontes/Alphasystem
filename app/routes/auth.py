@@ -33,13 +33,13 @@ serializer = URLSafeTimedSerializer(os.environ.get('SECRET_KEY', 'sua_chave_secr
 def send_reset_email(email, token):
     """Envia email de recuperação de senha"""
     msg = MIMEMultipart()
-    msg['Subject'] = 'Recuperação de Senha - Sistema Prateleira'
+    msg['Subject'] = 'Recuperação de Senha - Alphasystem'
     msg['From'] = EMAIL_HOST_USER
     msg['To'] = email
 
     reset_url = url_for('auth.reset_with_token', token=token, _external=True)
     body = f"""
-    Você solicitou a recuperação de senha para o Sistema Prateleira.
+    Você solicitou a recuperação de senha para o Alphasystem.
 
     Clique no link abaixo para redefinir sua senha:
     {reset_url}

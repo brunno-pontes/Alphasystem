@@ -23,10 +23,10 @@ def create_app():
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'sua_chave_secreta_aqui'
 
     # Configurar SQLAlchemy para usar o banco de dados local por padrão
-    app.config['SQLALCHEMY_DATABASE_URI'] = DevelopmentConfig.LOCAL_DATABASE_URI
+    app.config['SQLALCHEMY_DATABASE_URI'] = DevelopmentConfig.get_local_database_uri()
     app.config['SQLALCHEMY_BINDS'] = {
-        'local': DevelopmentConfig.LOCAL_DATABASE_URI,
-        'online': DevelopmentConfig.ONLINE_DATABASE_URI
+        'local': DevelopmentConfig.get_local_database_uri(),
+        'online': DevelopmentConfig.get_online_database_uri()
     }
 
     # Inicializar extensões com app

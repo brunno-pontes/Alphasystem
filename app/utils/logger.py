@@ -8,7 +8,7 @@ def setup_logger(app):
     if not app.debug and not app.testing:
         if not os.path.exists('logs'):
             os.mkdir('logs')
-        file_handler = RotatingFileHandler('logs/sistema_prateleira.log', 
+        file_handler = RotatingFileHandler('logs/alphasystem.log',
                                          maxBytes=10240000, 
                                          backupCount=10)
         file_handler.setFormatter(logging.Formatter(
@@ -17,7 +17,7 @@ def setup_logger(app):
         file_handler.setLevel(logging.INFO)
         app.logger.addHandler(file_handler)
         app.logger.setLevel(logging.INFO)
-        app.logger.info('Sistema Prateleira startup')
+        app.logger.info('Alphasystem startup')
 
 def log_user_activity(action, details=""):
     """Registra atividades dos usuários"""

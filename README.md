@@ -1,4 +1,4 @@
-# Sistema Prateleira
+# Alphasystem
 
 Sistema completo de gerenciamento de estoque e vendas com controle de licenças para instalação local.
 
@@ -23,7 +23,7 @@ Sistema completo de gerenciamento de estoque e vendas com controle de licenças 
 1. Clone ou crie o projeto:
 
 ```bash
-cd sistema_prateleira
+cd alphasystem
 ```
 
 2. Crie um ambiente virtual:
@@ -56,40 +56,39 @@ sudo systemctl enable mariadb
 sudo mysql_secure_installation
 ```
 
-Agora, crie o banco de dados e o usuário conforme especificado na configuração:
+Agora, crie o banco de dados e o usuário para o Alphasystem. O nome de usuário e senha padrão são definidos no arquivo `.env`, que você criará posteriormente:
 
 ```bash
-# Conecte-se ao MariaDB como root
-sudo mysql -u root
+# Conecte-se ao MariaDB como root ou usuário com privilégios de administrador
+sudo mysql -u root -p
 
-# Dentro do console do MariaDB, execute:
-ALTER USER 'root'@'localhost' IDENTIFIED BY 'Rootbr@10!';
-CREATE DATABASE IF NOT EXISTS `alpha-db`;
-GRANT ALL PRIVILEGES ON `alpha-db`.* TO 'root'@'localhost';
+# Dentro do console do MariaDB, execute (substituindo 'seu_usuario' e 'sua_senha' pelos valores reais):
+CREATE USER 'seu_usuario'@'localhost' IDENTIFIED BY 'sua_senha';
+CREATE DATABASE IF NOT EXISTS `alpha_local`;
+GRANT ALL PRIVILEGES ON `alpha_local`.* TO 'seu_usuario'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
 ```
 
-Se você encontrar o erro "Access denied for user 'root'@'localhost'" ou "Column 'authentication_string' is not updatable", use os comandos apropriados para sua versão do MariaDB:
+Se você encontrar o erro "Access denied for user 'seu_usuario'@'localhost'" ou "Column 'authentication_string' is not updatable", use os comandos apropriados para sua versão do MariaDB:
 
 ```bash
-# Conecte-se ao MariaDB como root
-sudo mysql -u root
+# Conecte-se ao MariaDB como root ou usuário com privilégios de administrador
+sudo mysql -u root -p
 
-# Dentro do console do MariaDB, execute os comandos apropriados para sua versão:
+# Dentro do console do MariaDB, execute os comandos apropriados para sua versão (substituindo 'seu_usuario' e 'sua_senha'):
 
 # Para versões mais recentes do MariaDB:
-ALTER USER 'root'@'localhost' IDENTIFIED BY 'Rootbr@10!';
-CREATE DATABASE IF NOT EXISTS `alpha-db`;
-GRANT ALL PRIVILEGES ON `alpha-db`.* TO 'root'@'localhost';
+CREATE USER 'seu_usuario'@'localhost' IDENTIFIED BY 'sua_senha';
+CREATE DATABASE IF NOT EXISTS `alpha_local`;
+GRANT ALL PRIVILEGES ON `alpha_local`.* TO 'seu_usuario'@'localhost';
 FLUSH PRIVILEGES;
 
-# Para versões mais antigas do MariaDB/MySQL (se ALTER USER não funcionar):
+# Para versões mais antigas do MariaDB/MySQL (se CREATE USER não funcionar):
 USE mysql;
-UPDATE user SET authentication_string = PASSWORD('Rootbr@10!') WHERE User = 'root' AND Host = 'localhost';
-FLUSH PRIVILEGES;
-CREATE DATABASE IF NOT EXISTS `alpha-db`;
-GRANT ALL PRIVILEGES ON `alpha-db`.* TO 'root'@'localhost';
+CREATE USER 'seu_usuario'@'localhost' IDENTIFIED BY 'sua_senha';
+CREATE DATABASE IF NOT EXISTS `alpha_local`;
+GRANT ALL PRIVILEGES ON `alpha_local`.* TO 'seu_usuario'@'localhost';
 FLUSH PRIVILEGES;
 
 EXIT;
@@ -100,6 +99,10 @@ EXIT;
 ```bash
 python run.py
 ```
+
+Na primeira execução, o sistema fará o seguinte automaticamente:
+- Criará todas as tabelas necessárias no banco de dados
+- Criará um usuário admin (se não existir) com as credenciais definidas no arquivo `.env` (ou usando os valores padrão `admin`/`admin123` se não forem definidas)
 
 ## Configuração da Licença
 
@@ -120,7 +123,7 @@ export PRATELEIRA_LICENSE_KEY=SUA_CHAVE_DE_LICENCA
 ## Estrutura do Projeto
 
 ```
-sistema_prateleira/
+alphasystem/
 ├── app/
 │   ├── __init__.py
 │   ├── config.py
@@ -163,16 +166,21 @@ Edite o arquivo `.env` com suas credenciais reais:
 ```env
 # .env
 SECRET_KEY=sua_chave_secreta_gerada_aqui
-DB_USER=root
-DB_PASSWORD=root
+DB_USER=seu_usuario_do_banco
+DB_PASSWORD=sua_senha_do_banco
 DB_HOST=localhost
 DB_PORT=3306
-DB_NAME=alpha-db
+DB_NAME=alpha_local
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=sua_senha_admin
+ADMIN_EMAIL=seu_email_admin@empresa.com
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_HOST_USER=seu_email@gmail.com
 EMAIL_HOST_PASSWORD=sua_senha_de_app
 ```
+
+> **Observação:** Se as variáveis `ADMIN_USERNAME`, `ADMIN_PASSWORD` e `ADMIN_EMAIL` não forem definidas, o sistema criará um usuário admin com os valores padrão: `admin`/`admin123`.
 
 ### Como gerar uma SECRET_KEY segura:
 
@@ -247,13 +255,58 @@ O sistema agora inclui um controle de caixa moderno com as seguintes funcionalid
 
 ## Implantação
 
-Para implantação em produção, recomenda-se:
+### Em produção tradicional
+
+Para implantação em produção tradicional, recomenda-se:
 
 - Configurar um servidor WSGI como Gunicorn ou uWSGI
 - Colocar o sistema atrás de um proxy reverso como Nginx
 - Configurar variáveis de ambiente apropriadamente
 - Configurar o banco de dados para produção
 - Implementar o servidor central para validação de licenças
+
+### No Vercel
+
+O Alphasystem pode ser implantado no Vercel. O arquivo `vercel.json` já está configurado para isso.
+
+#### Configuração no Vercel:
+
+1. Faça fork deste repositório no GitHub
+2. Importe o projeto no Vercel
+3. Configure as variáveis de ambiente conforme abaixo
+4. O deploy será feito automaticamente
+
+#### Variáveis de ambiente necessárias:
+
+As mesmas variáveis definidas no arquivo `.env` devem ser configuradas como variáveis de ambiente no Vercel:
+
+- `SECRET_KEY`: Chave secreta para a aplicação Flask
+- `DB_USER`: Usuário do banco de dados local
+- `DB_PASSWORD`: Senha do banco de dados local
+- `DB_HOST`: Host do banco de dados local (para acesso remoto do Vercel)
+- `DB_PORT`: Porta do banco de dados local
+- `DB_NAME`: Nome do banco de dados local
+- `ONLINE_DB_USER`: Usuário do banco de dados online (para validação de licenças)
+- `ONLINE_DB_PASSWORD`: Senha do banco de dados online
+- `ONLINE_DB_HOST`: Host do banco de dados online
+- `ONLINE_DB_PORT`: Porta do banco de dados online
+- `ONLINE_DB_NAME`: Nome do banco de dados online
+- `ADMIN_USERNAME`: Nome de usuário para o admin (opcional)
+- `ADMIN_PASSWORD`: Senha para o admin (opcional)
+- `ADMIN_EMAIL`: Email para o admin (opcional)
+- `EMAIL_HOST`: Servidor SMTP para envio de emails
+- `EMAIL_PORT`: Porta do servidor SMTP
+- `EMAIL_HOST_USER`: Usuário do email
+- `EMAIL_HOST_PASSWORD`: Senha do email ou senha de app
+- `PRATELEIRA_LICENSE_KEY`: Chave de licença (opcional)
+
+> **Importante sobre o banco de dados local:** O Vercel está hospedando apenas o aplicativo Flask, não o banco de dados. Para o banco de dados local, você terá algumas opções:
+>
+> 1. **Expor seu banco de dados local via túnel** (ex: usando ngrok) para acesso remoto
+> 2. **Utilizar um banco de dados hospedado** (ex: AWS RDS, Google Cloud SQL, PlanetScale, etc.)
+> 3. **Mover o banco de dados local para um provedor externo** e ajustar as variáveis de ambiente
+>
+> Em qualquer caso, o `DB_HOST`, `DB_USER`, `DB_PASSWORD`, etc. devem apontar para onde seu banco de dados local está hospedado e acessível via internet.
 
 ## Configuração de Múltiplos Bancos de Dados
 

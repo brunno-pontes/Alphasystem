@@ -21,7 +21,7 @@ class DatabaseManager:
             with cls._lock:
                 if thread_id not in cls._local_engines:
                     cls._local_engines[thread_id] = create_engine(
-                        DevelopmentConfig.LOCAL_DATABASE_URI,
+                        DevelopmentConfig.get_local_database_uri(),
                         **DevelopmentConfig.LOCAL_ENGINE_OPTIONS
                     )
         return cls._local_engines[thread_id]
@@ -30,7 +30,7 @@ class DatabaseManager:
     def get_online_engine(cls):
         """Obtém o engine para o banco de dados online"""
         return create_engine(
-            DevelopmentConfig.ONLINE_DATABASE_URI,
+            DevelopmentConfig.get_online_database_uri(),
             **DevelopmentConfig.ONLINE_ENGINE_OPTIONS
         )
 

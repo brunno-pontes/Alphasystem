@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash
 
 # Carregar variáveis de ambiente do arquivo .env ANTES de importar outros módulos
 load_dotenv()
@@ -132,6 +133,31 @@ try:
             print(f'Erro durante a criação/atualização das tabelas de crédito e consumo: {credit_migration_error}')
             db.session.rollback()
 
+        # Verificar se o usuário admin já existe, caso contrário, criar
+        admin_user = User.query.filter_by(username='admin').first()
+        if not admin_user:
+            # Verificar se as variáveis de ambiente para o usuário admin estão definidas
+            admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+            admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+            admin_email = os.environ.get('ADMIN_EMAIL', 'admin@localhost.com')
+
+            # Criar usuário admin com permissões
+            new_admin = User(
+                username=admin_username,
+                email=admin_email,
+                password=generate_password_hash(admin_password),
+                is_admin=True,
+                role='admin'
+            )
+
+            db.session.add(new_admin)
+            db.session.commit()
+            print(f"Usuário admin '{admin_username}' criado com sucesso!")
+            print(f"Login: {admin_username}")
+            print(f"Senha: {admin_password} (recomenda-se alterar após o primeiro acesso)")
+        else:
+            print(f"Usuário admin '{admin_user.username}' já existe.")
+
         # Iniciar validação de licença em background
         # license_manager.setup_background_validation()
         app.logger.info("Aplicação iniciada com sucesso!")
@@ -141,5 +167,8 @@ except Exception as e:
     print("Verifique as configurações do banco de dados local no arquivo .env")
     app.logger.error(f"Erro ao tentar conectar ao banco de dados local: {e}")
 
+# Para funcionar corretamente no Vercel, o app deve estar acessível globalmente
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0' ,port=5007)
+    import sys
+    port = int(os.environ.get('PORT', 5007))
+    app.run(debug=False, host='0.0.0.0', port=port)

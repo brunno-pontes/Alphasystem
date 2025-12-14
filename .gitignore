@@ -24,7 +24,6 @@ Thumbs.db
 
 # Variáveis de ambiente
 .env
-.env.example
 # Arquivos de sessão
 cookies.txt
 
@@ -32,4 +31,3 @@ cookies.txt
 *.swp
 *.swo
 *~
-init_admin_mariadb.py

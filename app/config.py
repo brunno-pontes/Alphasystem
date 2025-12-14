@@ -9,36 +9,62 @@ class DatabaseConfig:
     """Configuração do banco de dados"""
 
     # Configuração do banco de dados local
-    LOCAL_DB_USER = os.environ.get('LOCAL_DB_USER', os.environ.get('DB_USER', 'root'))
-    LOCAL_DB_PASSWORD_RAW = os.environ.get('LOCAL_DB_PASSWORD', os.environ.get('DB_PASSWORD', 'Rootbr@10!'))
+    LOCAL_DB_USER = os.environ.get('LOCAL_DB_USER', os.environ.get('DB_USER'))
+    LOCAL_DB_PASSWORD_RAW = os.environ.get('LOCAL_DB_PASSWORD', os.environ.get('DB_PASSWORD'))
+
     # Codifica caracteres especiais apenas se não estiverem codificados
-    if '%40' in LOCAL_DB_PASSWORD_RAW or '%40' in repr(LOCAL_DB_PASSWORD_RAW):
-        # Se já estiver codificada, usar diretamente
-        LOCAL_DB_PASSWORD = LOCAL_DB_PASSWORD_RAW
+    if LOCAL_DB_PASSWORD_RAW is not None:
+        if '%40' in LOCAL_DB_PASSWORD_RAW or '%40' in repr(LOCAL_DB_PASSWORD_RAW):
+            # Se já estiver codificada, usar diretamente
+            LOCAL_DB_PASSWORD = LOCAL_DB_PASSWORD_RAW
+        else:
+            # Caso contrário, codificar
+            LOCAL_DB_PASSWORD = urllib.parse.quote_plus(LOCAL_DB_PASSWORD_RAW)
     else:
-        # Caso contrário, codificar
-        LOCAL_DB_PASSWORD = urllib.parse.quote_plus(LOCAL_DB_PASSWORD_RAW)
+        # Deixar como None para ser validado em tempo de uso
+        LOCAL_DB_PASSWORD = None
+
     LOCAL_DB_HOST = os.environ.get('LOCAL_DB_HOST', os.environ.get('DB_HOST', 'localhost'))
     LOCAL_DB_PORT = os.environ.get('LOCAL_DB_PORT', os.environ.get('DB_PORT', '3306'))
     LOCAL_DB_NAME = os.environ.get('LOCAL_DB_NAME', os.environ.get('DB_NAME', 'alpha_local'))
 
-    LOCAL_DATABASE_URI = f'mysql+pymysql://{LOCAL_DB_USER}:{LOCAL_DB_PASSWORD}@{LOCAL_DB_HOST}:{LOCAL_DB_PORT}/{LOCAL_DB_NAME}'
+    # Montar LOCAL_DATABASE_URI somente quando todos os valores necessários estiverem disponíveis
+    @classmethod
+    def get_local_database_uri(cls):
+        if not cls.LOCAL_DB_USER:
+            raise ValueError("LOCAL_DB_USER ou DB_USER não está definido nas variáveis de ambiente.")
+        if not cls.LOCAL_DB_PASSWORD_RAW:
+            raise ValueError("LOCAL_DB_PASSWORD ou DB_PASSWORD não está definido nas variáveis de ambiente.")
+        return f'mysql+pymysql://{cls.LOCAL_DB_USER}:{cls.LOCAL_DB_PASSWORD}@{cls.LOCAL_DB_HOST}:{cls.LOCAL_DB_PORT}/{cls.LOCAL_DB_NAME}'
 
     # Configuração do banco de dados online para validação de licenças
-    ONLINE_DB_USER = os.environ.get('ONLINE_DB_USER', 'root')
-    ONLINE_DB_PASSWORD_RAW = os.environ.get('ONLINE_DB_PASSWORD', 'Rootbr@10!')
+    ONLINE_DB_USER = os.environ.get('ONLINE_DB_USER', os.environ.get('DB_USER'))
+    ONLINE_DB_PASSWORD_RAW = os.environ.get('ONLINE_DB_PASSWORD', os.environ.get('DB_PASSWORD'))
+
     # Codifica caracteres especiais apenas se não estiverem codificados
-    if '%40' in ONLINE_DB_PASSWORD_RAW or '%40' in repr(ONLINE_DB_PASSWORD_RAW):
-        # Se já estiver codificada, usar diretamente
-        ONLINE_DB_PASSWORD = ONLINE_DB_PASSWORD_RAW
+    if ONLINE_DB_PASSWORD_RAW is not None:
+        if '%40' in ONLINE_DB_PASSWORD_RAW or '%40' in repr(ONLINE_DB_PASSWORD_RAW):
+            # Se já estiver codificada, usar diretamente
+            ONLINE_DB_PASSWORD = ONLINE_DB_PASSWORD_RAW
+        else:
+            # Caso contrário, codificar
+            ONLINE_DB_PASSWORD = urllib.parse.quote_plus(ONLINE_DB_PASSWORD_RAW)
     else:
-        # Caso contrário, codificar
-        ONLINE_DB_PASSWORD = urllib.parse.quote_plus(ONLINE_DB_PASSWORD_RAW)
+        # Deixar como None para ser validado em tempo de uso
+        ONLINE_DB_PASSWORD = None
+
     ONLINE_DB_HOST = os.environ.get('ONLINE_DB_HOST', 'localhost')
     ONLINE_DB_PORT = os.environ.get('ONLINE_DB_PORT', '3306')
     ONLINE_DB_NAME = os.environ.get('ONLINE_DB_NAME', 'alpha_online')
 
-    ONLINE_DATABASE_URI = f'mysql+pymysql://{ONLINE_DB_USER}:{ONLINE_DB_PASSWORD}@{ONLINE_DB_HOST}:{ONLINE_DB_PORT}/{ONLINE_DB_NAME}'
+    # Montar ONLINE_DATABASE_URI somente quando todos os valores necessários estiverem disponíveis
+    @classmethod
+    def get_online_database_uri(cls):
+        if not cls.ONLINE_DB_USER:
+            raise ValueError("ONLINE_DB_USER ou DB_USER não está definido nas variáveis de ambiente.")
+        if not cls.ONLINE_DB_PASSWORD_RAW:
+            raise ValueError("ONLINE_DB_PASSWORD ou DB_PASSWORD não está definido nas variáveis de ambiente.")
+        return f'mysql+pymysql://{cls.ONLINE_DB_USER}:{cls.ONLINE_DB_PASSWORD}@{cls.ONLINE_DB_HOST}:{cls.ONLINE_DB_PORT}/{cls.ONLINE_DB_NAME}'
 
     # Opções adicionais para melhorar desempenho
     LOCAL_ENGINE_OPTIONS = {
@@ -88,11 +114,15 @@ class DevelopmentConfig(DatabaseConfig):
     DEBUG = True
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # Mantém compatibilidade com configuração existente
-    SQLALCHEMY_DATABASE_URI = DatabaseConfig.LOCAL_DATABASE_URI
+    @staticmethod
+    def get_database_uri():
+        return DatabaseConfig.get_local_database_uri()
 
 # Configuração do ambiente de produção
 class ProductionConfig(DatabaseConfig):
     DEBUG = False
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # Mantém compatibilidade com configuração existente
-    SQLALCHEMY_DATABASE_URI = DatabaseConfig.LOCAL_DATABASE_URI
+    @staticmethod
+    def get_database_uri():
+        return DatabaseConfig.get_local_database_uri()

@@ -1,4 +1,4 @@
-// Funções JavaScript para o sistema Prateleira
+// Funções JavaScript para o Alphasystem
 
 document.addEventListener('DOMContentLoaded', function() {
     // Adicionar confirmação para ações de exclusão

@@ -1,5 +1,5 @@
 @echo off
-echo Iniciando o Sistema Prateleira...
+echo Iniciando o Alphasystem...
 
 REM Verificar se o ambiente virtual está ativo
 if not defined VIRTUAL_ENV (
