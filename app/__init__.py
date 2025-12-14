@@ -7,8 +7,9 @@ load_dotenv()
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from app.config import DevelopmentConfig
+from app.config import DevelopmentConfig, ProductionConfig
 from flask_wtf.csrf import CSRFProtect
+import logging
 
 # Inicializar extensões
 db = SQLAlchemy()
@@ -22,12 +23,29 @@ def create_app():
     app.config.from_object(DevelopmentConfig)
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'sua_chave_secreta_aqui'
 
-    # Configurar SQLAlchemy para usar o banco de dados local por padrão
-    app.config['SQLALCHEMY_DATABASE_URI'] = DevelopmentConfig.get_local_database_uri()
-    app.config['SQLALCHEMY_BINDS'] = {
-        'local': DevelopmentConfig.get_local_database_uri(),
-        'online': DevelopmentConfig.get_online_database_uri()
-    }
+    # Tentar configurar o banco de dados local, com fallback para SQLite em caso de erro
+    try:
+        # Verificar se as variáveis essenciais do banco de dados estão definidas
+        local_db_user = os.environ.get('LOCAL_DB_USER') or os.environ.get('DB_USER')
+        local_db_password = os.environ.get('LOCAL_DB_PASSWORD') or os.environ.get('DB_PASSWORD')
+
+        if local_db_user and local_db_password:
+            app.config['SQLALCHEMY_DATABASE_URI'] = DevelopmentConfig.get_local_database_uri()
+            app.config['SQLALCHEMY_BINDS'] = {
+                'local': DevelopmentConfig.get_local_database_uri(),
+                'online': DevelopmentConfig.get_online_database_uri()
+            }
+        else:
+            raise ValueError("Variáveis de ambiente do banco de dados não configuradas")
+    except (ValueError, TypeError) as e:
+        # Em caso de erro nas variáveis de ambiente do banco de dados, usar SQLite para testes
+        print(f"Erro nas variáveis de ambiente do banco de dados: {e}")
+        print("Usando banco de dados SQLite para testes...")
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///fallback.db'
+        app.config['SQLALCHEMY_BINDS'] = {
+            'local': 'sqlite:///fallback_local.db',
+            'online': 'sqlite:///fallback_online.db'
+        }
 
     # Inicializar extensões com app
     db.init_app(app)
@@ -78,5 +96,11 @@ def create_app():
         app.register_blueprint(debug_bp)
     except ImportError:
         pass
+
+    # Adicionar tratamento de erro global para erros de banco de dados
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        app.logger.error(f"Erro não tratado: {e}")
+        return "Ocorreu um erro no servidor. Verifique as configurações do banco de dados.", 500
 
     return app

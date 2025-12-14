@@ -265,9 +265,9 @@ Para implantação em produção tradicional, recomenda-se:
 - Configurar o banco de dados para produção
 - Implementar o servidor central para validação de licenças
 
-### No Vercel
+### No Vercel com MySQL e Ngrok
 
-O Alphasystem pode ser implantado no Vercel. O arquivo `vercel.json` já está configurado para isso.
+O Alphasystem pode ser implantado no Vercel com MySQL, usando ngrok para expor o banco de dados local. O arquivo `vercel.json` já está configurado para isso.
 
 #### Configuração no Vercel:
 
@@ -281,11 +281,11 @@ O Alphasystem pode ser implantado no Vercel. O arquivo `vercel.json` já está c
 As mesmas variáveis definidas no arquivo `.env` devem ser configuradas como variáveis de ambiente no Vercel:
 
 - `SECRET_KEY`: Chave secreta para a aplicação Flask
-- `DB_USER`: Usuário do banco de dados local
-- `DB_PASSWORD`: Senha do banco de dados local
-- `DB_HOST`: Host do banco de dados local (para acesso remoto do Vercel)
-- `DB_PORT`: Porta do banco de dados local
-- `DB_NAME`: Nome do banco de dados local
+- `LOCAL_DB_USER`: Usuário do banco de dados local
+- `LOCAL_DB_PASSWORD`: Senha do banco de dados local
+- `LOCAL_DB_HOST`: Host do banco de dados local (para acesso remoto do Vercel, ex: xxx.ngrok.io)
+- `LOCAL_DB_PORT`: Porta do banco de dados local
+- `LOCAL_DB_NAME`: Nome do banco de dados local
 - `ONLINE_DB_USER`: Usuário do banco de dados online (para validação de licenças)
 - `ONLINE_DB_PASSWORD`: Senha do banco de dados online
 - `ONLINE_DB_HOST`: Host do banco de dados online
@@ -300,13 +300,37 @@ As mesmas variáveis definidas no arquivo `.env` devem ser configuradas como var
 - `EMAIL_HOST_PASSWORD`: Senha do email ou senha de app
 - `PRATELEIRA_LICENSE_KEY`: Chave de licença (opcional)
 
-> **Importante sobre o banco de dados local:** O Vercel está hospedando apenas o aplicativo Flask, não o banco de dados. Para o banco de dados local, você terá algumas opções:
+> **Importante sobre o banco de dados local:** O Vercel está hospedando apenas o aplicativo Flask, não o banco de dados. Para o banco de dados local com MySQL, você tem as seguintes opções:
 >
-> 1. **Expor seu banco de dados local via túnel** (ex: usando ngrok) para acesso remoto
-> 2. **Utilizar um banco de dados hospedado** (ex: AWS RDS, Google Cloud SQL, PlanetScale, etc.)
-> 3. **Mover o banco de dados local para um provedor externo** e ajustar as variáveis de ambiente
+> 1. **Expor seu banco de dados MySQL local via túnel ngrok** para acesso remoto (abordagem descrita neste guia)
+> 2. **Utilizar um banco de dados MySQL hospedado** (ex: AWS RDS, Google Cloud SQL, PlanetScale, etc.)
+> 3. **Mover o banco de dados local para um provedor externo MySQL** e ajustar as variáveis de ambiente
 >
-> Em qualquer caso, o `DB_HOST`, `DB_USER`, `DB_PASSWORD`, etc. devem apontar para onde seu banco de dados local está hospedado e acessível via internet.
+> Em qualquer caso, o `LOCAL_DB_HOST`, `LOCAL_DB_USER`, `LOCAL_DB_PASSWORD`, etc. devem apontar para onde seu banco de dados local está hospedado e acessível via internet.
+
+#### Usando Ngrok para Expor o Banco de Dados MySQL:
+
+Para usar ngrok para expor seu banco de dados MySQL local para o ambiente do Vercel:
+
+1. **Instale o ngrok** em sua máquina local
+2. **Configure seu MySQL para aceitar conexões remotas** (veja documentação em `docs/ngrok_mysql_setup.md`)
+3. **Crie um usuário MySQL com acesso remoto**:
+   ```sql
+   CREATE USER 'seu_usuario'@'%' IDENTIFIED BY 'sua_senha_segura';
+   GRANT ALL PRIVILEGES ON alpha_local.* TO 'seu_usuario'@'%';
+   FLUSH PRIVILEGES;
+   ```
+4. **Inicie o túnel ngrok para o MySQL**:
+   ```bash
+   ngrok tcp 3306
+   ```
+5. **Use o host e porta fornecidos pelo ngrok** como os valores para `LOCAL_DB_HOST` e `LOCAL_DB_PORT` no Vercel
+
+> **Atenção à segurança:** Ao expor seu banco de dados local via ngrok, certifique-se de usar senhas fortes e monitore o acesso ao seu banco de dados.
+
+Para instruções detalhadas sobre a configuração do ngrok com MySQL, consulte `docs/ngrok_mysql_setup.md`.
+
+Para instruções completas de deploy no Vercel, consulte `docs/vercel_deploy_guide.md`.
 
 ## Configuração de Múltiplos Bancos de Dados
 
